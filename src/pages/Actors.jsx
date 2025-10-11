@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Box,
   Container,
@@ -12,9 +12,14 @@ import {
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { listActors } from "../api/actors";
+import {
+  listActors,
+  recognizeActorsByImage,
+  searchActorsByNames,
+} from "../api/actors";
 import Header from "../components/Header";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import CameraAltIcon from "@mui/icons-material/CameraAlt";
 
 const PageContainer = styled(Box)(() => ({
   minHeight: "100vh",
@@ -56,12 +61,18 @@ export default function Actors() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const pageRef = useRef(0);
+  const fileInputRef = useRef(null);
+  const [imageSearching, setImageSearching] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const [imageName, setImageName] = useState("");
   const q = params.get("q") || "";
 
   const debouncedQuery = useDebounce(q, 300);
 
   useEffect(() => {
-    load(0);
+    if (!imageSearching) {
+      load(0);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery]);
 
@@ -86,6 +97,55 @@ export default function Actors() {
 
   const handleOpen = (id) => navigate(`/actor/${id}`);
 
+  function handlePickImage() {
+    fileInputRef.current?.click();
+  }
+
+  function handleClearImageSearch() {
+    setImageSearching(false);
+    setImagePreviewUrl("");
+    setImageName("");
+    // Re-run text search
+    load(pageRef.current || 0);
+  }
+
+  async function handleFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError("");
+    setImageSearching(true);
+    setLoading(true);
+    setImageName(file.name);
+    try {
+      // preview
+      const url = URL.createObjectURL(file);
+      setImagePreviewUrl(url);
+      // call recognition API
+      const data = await recognizeActorsByImage(file, { topK: 24 });
+      const preds = Array.isArray(data?.content)
+        ? data.content
+        : Array.isArray(data)
+        ? data
+        : [];
+      const names = preds
+        .map((p) => String(p?.name || "").trim())
+        .filter(Boolean);
+      // eslint-disable-next-line no-console
+      console.log("[AI] predicted names:", names);
+      const dbActors = await searchActorsByNames(names);
+      // eslint-disable-next-line no-console
+      console.log("[DB] matched actors:", dbActors);
+      setItems(dbActors);
+      pageRef.current = 0;
+    } catch (e) {
+      setError(e?.message || "Không thể nhận diện diễn viên từ ảnh");
+    } finally {
+      setLoading(false);
+      // reset input value to allow same-file reselect
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   return (
     <PageContainer>
       <Header />
@@ -104,16 +164,69 @@ export default function Actors() {
           </Typography>
           <SearchBar>
             <InputBase
-              placeholder="Tìm diễn viên…"
+              placeholder={
+                imageSearching ? "Đang tìm theo ảnh…" : "Tìm diễn viên…"
+              }
+              disabled={imageSearching}
               fullWidth
               value={q}
               onChange={(e) => setParams({ q: e.target.value })}
             />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: "none" }}
+              onChange={handleFileChange}
+            />
+            <Tooltip title="Tìm bằng ảnh">
+              <IconButton onClick={handlePickImage} sx={{ ml: 1 }}>
+                <CameraAltIcon sx={{ color: "#ffd700" }} />
+              </IconButton>
+            </Tooltip>
           </SearchBar>
+
+          {imageSearching && (
+            <Box
+              sx={{ mt: 1.5, display: "flex", alignItems: "center", gap: 2 }}
+            >
+              {imagePreviewUrl && (
+                <Box
+                  component="img"
+                  src={imagePreviewUrl}
+                  alt={imageName || "uploaded"}
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    objectFit: "cover",
+                    borderRadius: 1,
+                    border: "1px solid rgba(255,255,255,0.2)",
+                  }}
+                />
+              )}
+              <Chip
+                label={
+                  imageName ? `Tìm theo ảnh: ${imageName}` : "Đang tìm theo ảnh"
+                }
+                onDelete={handleClearImageSearch}
+                sx={{
+                  background: "rgba(255,215,0,0.15)",
+                  color: "#ffd700",
+                  border: "1px solid rgba(255,215,0,0.35)",
+                  fontWeight: 600,
+                }}
+              />
+            </Box>
+          )}
         </Box>
 
         {error && (
           <Typography sx={{ color: "#ff6b6b", mt: 2 }}>{error}</Typography>
+        )}
+
+        {loading && items.length === 0 && (
+          <Typography sx={{ color: "#bbb", mt: 2 }}>Đang tải…</Typography>
         )}
 
         <Grid container spacing={3} sx={{ mt: 1 }}>
