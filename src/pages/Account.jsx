@@ -477,7 +477,7 @@ export default function Account() {
       active: false,
       to: "/favorites",
     },
-    { label: "Danh sách", icon: <List />, active: false },
+    { label: "Danh sách", icon: <List />, active: false, to: "/watchlist" },
     { label: "Xem tiếp", icon: <History />, active: false },
     { label: "Thông báo", icon: <Notifications />, active: false },
     { label: "Tài khoản", icon: <AccountCircle />, active: true },

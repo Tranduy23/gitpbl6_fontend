@@ -39,6 +39,7 @@ import {
   Tooltip,
   Autocomplete,
 } from "@mui/material";
+import TmdbMovieSearch from "../components/TmdbMovieSearch";
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -1990,6 +1991,9 @@ function MovieCreationForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // TMDB integration state
+  const [showTmdbSearch, setShowTmdbSearch] = useState(false);
+
   // Lookup options for autocomplete fields
   const [actorOptions, setActorOptions] = useState([]);
   const [directorOptions, setDirectorOptions] = useState([]);
@@ -2113,6 +2117,37 @@ function MovieCreationForm({
     setFiles((prev) => ({ ...prev, [field]: file }));
   };
 
+  // Handle TMDB movie selection
+  const handleTmdbMovieSelect = (tmdbMovieData) => {
+    // Update form data with TMDB data
+    setFormData((prev) => ({
+      ...prev,
+      title: tmdbMovieData.title || prev.title,
+      synopsis: tmdbMovieData.synopsis || prev.synopsis,
+      year: tmdbMovieData.year || prev.year,
+      categories: tmdbMovieData.categories || prev.categories,
+      actors: tmdbMovieData.actors || prev.actors,
+      directors: tmdbMovieData.directors || prev.directors,
+      country: tmdbMovieData.country || prev.country,
+      language: tmdbMovieData.language || prev.language,
+      ageRating: tmdbMovieData.ageRating || prev.ageRating,
+      imdbRating: tmdbMovieData.imdbRating || prev.imdbRating,
+      isFeatured: tmdbMovieData.isFeatured ?? prev.isFeatured,
+      isTrending: tmdbMovieData.isTrending ?? prev.isTrending,
+      releaseDate: tmdbMovieData.releaseDate || prev.releaseDate,
+      trailerUrl: tmdbMovieData.trailerUrl || prev.trailerUrl,
+    }));
+
+    // Update files with downloaded images
+    setFiles((prev) => ({
+      ...prev,
+      poster: tmdbMovieData.poster || prev.poster,
+      thumbnail: tmdbMovieData.thumbnail || prev.thumbnail,
+    }));
+
+    setShowTmdbSearch(false);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -2143,9 +2178,28 @@ function MovieCreationForm({
   return (
     <Card>
       <CardContent>
-        <Typography variant="h6" gutterBottom>
-          {isEdit ? "Edit Movie" : "Create New Movie"}
-        </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2,
+          }}
+        >
+          <Typography variant="h6">
+            {isEdit ? "Edit Movie" : "Create New Movie"}
+          </Typography>
+          {!isEdit && (
+            <Button
+              variant="outlined"
+              startIcon={<MovieIcon />}
+              onClick={() => setShowTmdbSearch(true)}
+              color="primary"
+            >
+              Import from TMDB
+            </Button>
+          )}
+        </Box>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -2467,6 +2521,13 @@ function MovieCreationForm({
           </Grid>
         </Box>
       </CardContent>
+
+      {/* TMDB Movie Search Modal */}
+      <TmdbMovieSearch
+        open={showTmdbSearch}
+        onClose={() => setShowTmdbSearch(false)}
+        onSelectMovie={handleTmdbMovieSelect}
+      />
     </Card>
   );
 }
@@ -3138,13 +3199,13 @@ function UserViewForm({ user, onClose }) {
 function UserEditForm({ user, onSuccess, onCancel }) {
   const [formData, setFormData] = useState({
     enabled: user?.enabled ?? true,
-    roles: user?.roles || [],
+    roles: user?.roles || ["USER"], // Default to USER role if no roles exist
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const availableRoles = ["USER", "ADMIN", "MODERATOR"];
+  const availableRoles = ["USER", "ADMIN"];
 
   const handleInputChange = (field) => (event) => {
     const value =
@@ -3158,7 +3219,7 @@ function UserEditForm({ user, onSuccess, onCancel }) {
     const value = event.target.value;
     setFormData((prev) => ({
       ...prev,
-      roles: typeof value === "string" ? value.split(",") : value,
+      roles: [value], // Wrap single value in array to maintain API compatibility
     }));
   };
 
@@ -3206,13 +3267,11 @@ function UserEditForm({ user, onSuccess, onCancel }) {
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Roles</InputLabel>
+                <InputLabel>Role</InputLabel>
                 <Select
-                  multiple
-                  value={formData.roles}
+                  value={formData.roles[0] || ""}
                   onChange={handleRoleChange}
-                  label="Roles"
-                  renderValue={(selected) => selected.join(", ")}
+                  label="Role"
                 >
                   {availableRoles.map((role) => (
                     <MenuItem key={role} value={role}>

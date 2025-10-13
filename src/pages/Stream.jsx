@@ -38,6 +38,14 @@ import useMovies from "../hooks/useMovies";
 import Header from "../components/Header";
 import { listActors } from "../api/actors";
 import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from "@mui/material";
+import { useAuth } from "../hooks/useAuth";
+import { listCollections, addMovieToWatchlist } from "../api/watchlist";
+import {
   getStreamingInfo,
   startStreaming,
   updateStreamingQuality,
@@ -63,6 +71,7 @@ export default function Stream() {
   const location = useLocation();
   const navigate = useNavigate();
   const { movies } = useMovies();
+  const { token, isAuthenticated } = useAuth();
 
   const movie = useMemo(() => {
     const numericId = Number(id);
@@ -160,6 +169,24 @@ export default function Stream() {
     useState("English");
   const [subtitleEnabled, setSubtitleEnabled] = useState(true);
   const [videoSrc, setVideoSrc] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [collections, setCollections] = useState([]);
+  const [addForm, setAddForm] = useState({
+    collectionId: "",
+    notes: "",
+    priority: 1,
+  });
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!token) return;
+        const cols = await listCollections(token);
+        setCollections(cols || []);
+      } catch (_) {
+        // ignore
+      }
+    })();
+  }, [token]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -941,7 +968,17 @@ export default function Stream() {
           <Button startIcon={<FavoriteBorderIcon />} sx={{ color: "#fff" }}>
             Yêu thích
           </Button>
-          <Button startIcon={<AddIcon />} sx={{ color: "#fff" }}>
+          <Button
+            startIcon={<AddIcon />}
+            sx={{ color: "#fff" }}
+            onClick={() => {
+              if (!isAuthenticated) {
+                navigate("/login");
+                return;
+              }
+              setAddOpen(true);
+            }}
+          >
             Thêm vào
           </Button>
         </Box>
@@ -1376,6 +1413,67 @@ export default function Stream() {
           </Stack>
         </Box>
       </Container>
+      <Dialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Thêm vào danh sách</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              select
+              label="Bộ sưu tập"
+              value={addForm.collectionId}
+              onChange={(e) =>
+                setAddForm((p) => ({ ...p, collectionId: e.target.value }))
+              }
+            >
+              {collections.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Ghi chú"
+              value={addForm.notes}
+              onChange={(e) =>
+                setAddForm((p) => ({ ...p, notes: e.target.value }))
+              }
+            />
+            <TextField
+              label="Ưu tiên"
+              type="number"
+              value={addForm.priority}
+              onChange={(e) =>
+                setAddForm((p) => ({
+                  ...p,
+                  priority: Number(e.target.value || 0),
+                }))
+              }
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddOpen(false)}>Hủy</Button>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              try {
+                if (!movieId) return;
+                await addMovieToWatchlist(movieId, addForm, token);
+                setAddOpen(false);
+              } catch (_) {
+                // ignore
+              }
+            }}
+          >
+            Thêm
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

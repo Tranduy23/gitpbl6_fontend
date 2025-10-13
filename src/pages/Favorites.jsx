@@ -104,7 +104,7 @@ export default function Favorites() {
         to: "/favorites",
         active: true,
       },
-      { label: "Danh sách", icon: <List />, to: "/account" },
+      { label: "Danh sách", icon: <List />, to: "/watchlist" },
       { label: "Xem tiếp", icon: <History />, to: "/account" },
       { label: "Thông báo", icon: <Notifications />, to: "/account" },
       { label: "Tài khoản", icon: <AccountCircle />, to: "/account" },
@@ -304,7 +304,8 @@ export default function Favorites() {
                         alt={it.title}
                         sx={{
                           width: "100%",
-                          height: 280,
+                          height: "auto",
+                          aspectRatio: "2 / 3",
                           objectFit: "cover",
                           display: "block",
                         }}

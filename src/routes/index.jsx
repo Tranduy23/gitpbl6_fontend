@@ -33,6 +33,7 @@ export default function Router() {
         { path: "login", element: <LoginPage /> },
         { path: "register", element: <RegisterPage /> },
         { path: "favorites", element: <FavoritesPage /> },
+        { path: "watchlist", element: <WatchlistPage /> },
         { path: "account", element: <AccountPage /> },
         { path: "admin", element: <AdminManagementPage /> },
       ],
@@ -52,6 +53,7 @@ const StreamPage = Loadable(lazy(() => import("../pages/Stream")));
 const LoginPage = Loadable(lazy(() => import("../pages/Login")));
 const RegisterPage = Loadable(lazy(() => import("../pages/Register")));
 const FavoritesPage = Loadable(lazy(() => import("../pages/Favorites")));
+const WatchlistPage = Loadable(lazy(() => import("../pages/Watchlist")));
 const AccountPage = Loadable(lazy(() => import("../pages/Account")));
 const AdminManagementPage = Loadable(
   lazy(() => import("../pages/AdminManagement"))

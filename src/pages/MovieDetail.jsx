@@ -25,6 +25,14 @@ import SendIcon from "@mui/icons-material/Send";
 import useMovies from "../hooks/useMovies";
 import Header from "../components/Header";
 import { useAuth } from "../hooks/useAuth";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  MenuItem,
+} from "@mui/material";
+import { listCollections, addMovieToWatchlist } from "../api/watchlist";
 import { addFavorite } from "../api/favorites";
 import { listActors } from "../api/actors";
 
@@ -40,6 +48,24 @@ export default function MovieDetail() {
     message: "",
     severity: "success",
   });
+  const [addOpen, setAddOpen] = useState(false);
+  const [collections, setCollections] = useState([]);
+  const [addForm, setAddForm] = useState({
+    collectionId: "",
+    notes: "",
+    priority: 1,
+  });
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!token) return;
+        const cols = await listCollections(token);
+        setCollections(cols || []);
+      } catch (_) {
+        // ignore
+      }
+    })();
+  }, [token]);
   // Comments only; rating removed
 
   const movie = useMemo(() => {
@@ -596,6 +622,13 @@ export default function MovieDetail() {
                       backdropFilter: "blur(6px)",
                       ":hover": { bgcolor: "rgba(255,255,255,0.06)" },
                     }}
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        navigate("/login");
+                        return;
+                      }
+                      setAddOpen(true);
+                    }}
                   >
                     Thêm vào
                   </Button>
@@ -1009,6 +1042,75 @@ export default function MovieDetail() {
               </Box>
             </Stack>
           </Container>
+          <Dialog
+            open={addOpen}
+            onClose={() => setAddOpen(false)}
+            fullWidth
+            maxWidth="sm"
+          >
+            <DialogTitle>Thêm vào danh sách</DialogTitle>
+            <DialogContent>
+              <Stack spacing={2} sx={{ mt: 1 }}>
+                <TextField
+                  select
+                  label="Bộ sưu tập"
+                  value={addForm.collectionId}
+                  onChange={(e) =>
+                    setAddForm((p) => ({ ...p, collectionId: e.target.value }))
+                  }
+                >
+                  {collections.map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Ghi chú"
+                  value={addForm.notes}
+                  onChange={(e) =>
+                    setAddForm((p) => ({ ...p, notes: e.target.value }))
+                  }
+                />
+                <TextField
+                  label="Ưu tiên"
+                  type="number"
+                  value={addForm.priority}
+                  onChange={(e) =>
+                    setAddForm((p) => ({
+                      ...p,
+                      priority: Number(e.target.value || 0),
+                    }))
+                  }
+                />
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setAddOpen(false)}>Hủy</Button>
+              <Button
+                onClick={async () => {
+                  try {
+                    await addMovieToWatchlist(Number(movie.id), addForm, token);
+                    setSnack({
+                      open: true,
+                      message: "Đã thêm vào danh sách",
+                      severity: "success",
+                    });
+                    setAddOpen(false);
+                  } catch (_) {
+                    setSnack({
+                      open: true,
+                      message: "Không thể thêm",
+                      severity: "error",
+                    });
+                  }
+                }}
+                variant="contained"
+              >
+                Thêm
+              </Button>
+            </DialogActions>
+          </Dialog>
         </>
       )}
     </Box>

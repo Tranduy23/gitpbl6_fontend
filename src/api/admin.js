@@ -120,7 +120,7 @@ export function updateUserRoles(userId, roles) {
   if (!roles) throw new Error("roles are required");
   return jsonFetch(`/admin/users/${encodeURIComponent(userId)}/roles`, {
     method: "PUT",
-    body: JSON.stringify({ roles }),
+    body: JSON.stringify(roles),
   });
 }
 
