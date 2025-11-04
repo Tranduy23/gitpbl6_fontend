@@ -19,11 +19,20 @@ import useMovies from "../hooks/useMovies";
 // Utils
 import { toHero } from "../utils/imageUtils";
 
+// API
+import { getFeaturedMovies, getTrendingMovies } from "../api/streaming";
+
 export default function Home() {
   const { movies } = useMovies();
   const [activeIndex, setActiveIndex] = useState(0);
-  const activeMovie = movies[activeIndex];
+  const [trendingMovies, setTrendingMovies] = useState([]);
+  const displayMovies = trendingMovies; // show thumbnails only for trending
+  const activeMovie =
+    displayMovies && displayMovies.length > 0
+      ? displayMovies[activeIndex]
+      : undefined;
   const navigate = useNavigate();
+  const [featuredMovies, setFeaturedMovies] = useState([]);
 
   // Ẩn/hiện thumbnails khi rời Hero
   const [showThumb, setShowThumb] = useState(true);
@@ -40,6 +49,63 @@ export default function Home() {
 
   const handleSignUp = useCallback(() => {
     console.log("Sign up clicked");
+  }, []);
+  // Fetch trending movies for thumbnails/Hero
+  useEffect(() => {
+    const fetchTrending = async () => {
+      try {
+        const data = await getTrendingMovies(10);
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data?.data)
+          ? data.data
+          : [];
+
+        const transformed = list.map((movie, i) => {
+          let posterUrl =
+            movie.posterUrl || movie.thumbnailUrl || movie.thumb || "";
+
+          // Normalize and prefix relative paths
+          if (posterUrl && posterUrl.startsWith("/uploads")) {
+            posterUrl = `/api${posterUrl}`;
+          } else if (
+            posterUrl &&
+            !posterUrl.startsWith("http") &&
+            !posterUrl.startsWith("/api")
+          ) {
+            posterUrl = `/api${posterUrl}`;
+          }
+
+          // Ensure non-empty src so thumbnails render even without images
+          if (!posterUrl) {
+            posterUrl = `https://via.placeholder.com/300x300/333/fff?text=${encodeURIComponent(
+              movie.title || `Movie ${i + 1}`
+            )}`;
+          }
+
+          return {
+            id: movie.id ?? i + 1,
+            title: movie.title || movie.englishTitle || `Movie ${i + 1}`,
+            thumb: posterUrl,
+            rating:
+              movie.imdbRating?.toString() ||
+              movie.averageRating?.toString() ||
+              "8.5",
+            year: movie.year?.toString() || "2024",
+            genres: movie.categories || movie.genres || [],
+            synopsis: movie.synopsis || movie.overview || "",
+            imdbRating: movie.imdbRating,
+          };
+        });
+        setTrendingMovies(transformed);
+        setActiveIndex(0);
+      } catch (err) {
+        console.error("Error fetching trending movies:", err);
+      }
+    };
+    fetchTrending();
   }, []);
 
   const handlePlay = useCallback(
@@ -102,6 +168,71 @@ export default function Home() {
     };
   }, []);
 
+  // Fetch featured movies from API
+  useEffect(() => {
+    const fetchFeaturedMovies = async () => {
+      try {
+        console.log("Fetching featured movies...");
+        const data = await getFeaturedMovies(10);
+        console.log("Featured movies API response:", data);
+
+        // Transform API response to match FeaturedMovies component format
+        const transformed = (data || []).map((movie) => {
+          // Build full poster URL if it's a relative path
+          let posterUrl = movie.posterUrl || "";
+          if (
+            posterUrl &&
+            !posterUrl.startsWith("http") &&
+            !posterUrl.startsWith("/")
+          ) {
+            posterUrl = `/api${posterUrl}`;
+          }
+          // If it already starts with /api, use it as is
+
+          return {
+            id: movie.id,
+            title: movie.title,
+            thumb: posterUrl,
+            rating:
+              movie.imdbRating?.toString() ||
+              movie.averageRating?.toString() ||
+              "8.5",
+            year: movie.year?.toString() || "2024",
+            genres: movie.categories || [],
+            synopsis: movie.synopsis || "",
+            imdbRating: movie.imdbRating,
+            averageRating: movie.averageRating,
+            isFavorite: movie.isFavorite || false,
+            isInWatchlist: movie.isInWatchlist || false,
+          };
+        });
+
+        console.log("Transformed featured movies:", transformed);
+        setFeaturedMovies(transformed);
+      } catch (err) {
+        console.error("Error fetching featured movies:", err);
+        // On error, fallback to regular movies filtered by isFeatured
+        const fallback = movies
+          .filter((m) => m.isFeatured)
+          .slice(0, 10)
+          .map((m) => ({
+            id: m.id,
+            title: m.title,
+            thumb: m.thumb || "",
+            rating:
+              m.imdbRating?.toString() || m.averageRating?.toString() || "8.5",
+            year: m.year || "2024",
+            genres: m.genres || [],
+            synopsis: m.synopsis || "",
+          }));
+        console.log("Using fallback featured movies:", fallback);
+        setFeaturedMovies(fallback);
+      }
+    };
+
+    fetchFeaturedMovies();
+  }, [movies]); // Include movies for fallback
+
   // Lắng nghe sự kiện toast toàn cục
   useEffect(() => {
     const handler = (e) => {
@@ -129,33 +260,37 @@ export default function Home() {
           onFavorite={handleFavorite}
         />
 
-        <Box
-          sx={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 24,
-            zIndex: 5,
-            opacity: showThumb ? 1 : 0,
-            pointerEvents: showThumb ? "auto" : "none",
-            transform: showThumb ? "translateY(0)" : "translateY(8px)",
-            transition: "opacity .25s ease, transform .25s ease",
-          }}
-        >
-          <MovieThumbnails
-            movies={movies}
-            activeIndex={activeIndex}
-            onMovieSelect={handleMovieSelect}
-          />
-        </Box>
+        {displayMovies.length > 0 && (
+          <Box
+            sx={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 24,
+              zIndex: 5,
+              opacity: showThumb ? 1 : 0,
+              pointerEvents: showThumb ? "auto" : "none",
+              transform: showThumb ? "translateY(0)" : "translateY(8px)",
+              transition: "opacity .25s ease, transform .25s ease",
+            }}
+          >
+            <MovieThumbnails
+              movies={displayMovies}
+              activeIndex={activeIndex}
+              onMovieSelect={handleMovieSelect}
+            />
+          </Box>
+        )}
       </Box>
 
       {/* Featured Movies Section */}
-      <FeaturedMovies
-        movies={movies}
-        title="PHIM NỔI BẬT"
-        subtitle="Khám phá những bộ phim hay nhất được yêu thích"
-      />
+      {featuredMovies.length > 0 && (
+        <FeaturedMovies
+          movies={featuredMovies}
+          title="PHIM NỔI BẬT"
+          subtitle="Khám phá những bộ phim hay nhất được yêu thích"
+        />
+      )}
 
       {/* Catalog sections similar to screenshot */}
       <CatalogSection

@@ -126,7 +126,11 @@ export async function getMovieConfiguration() {
  */
 export function buildImageUrl(path, size = "w500") {
   if (!path) return null;
-  return `${TMDB_IMAGE_BASE}/${size}${path}`;
+
+  // Ensure path starts with /
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+
+  return `${TMDB_IMAGE_BASE}/${size}${normalizedPath}`;
 }
 
 /**

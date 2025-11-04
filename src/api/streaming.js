@@ -217,6 +217,18 @@ export function getPopularSearches(limit = 10) {
   return jsonFetch(`/search/popular?${params.toString()}`, { method: "GET" });
 }
 
+// GET /api/movies/featured?limit=
+export function getFeaturedMovies(limit = 10) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return jsonFetch(`/movies/featured?${params.toString()}`, { method: "GET" });
+}
+
+// GET /api/movies/trending?limit=
+export function getTrendingMovies(limit = 10) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return jsonFetch(`/movies/trending?${params.toString()}`, { method: "GET" });
+}
+
 // Favorites APIs moved to src/api/favorites.js
 
 // Helper: build HLS/DASH player source from startStreaming response
@@ -248,5 +260,8 @@ export default {
   searchByYear,
   getSearchSuggestions,
   getPopularSearches,
+  // movies exports
+  getFeaturedMovies,
+  getTrendingMovies,
   toPlayerSource,
 };
