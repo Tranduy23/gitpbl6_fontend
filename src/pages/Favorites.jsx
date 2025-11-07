@@ -146,9 +146,9 @@ export default function Favorites() {
     }
   }
 
-  const handleRemove = async (favoriteId) => {
+  const handleRemove = async (favoriteId, movieId) => {
     try {
-      await removeFavorite(favoriteId, token);
+      await removeFavorite(movieId ?? favoriteId, token);
       setItems((prev) => prev.filter((x) => x.id !== favoriteId));
     } catch (e) {
       setError(e?.message || "Không thể xóa khỏi yêu thích");
@@ -352,7 +352,7 @@ export default function Favorites() {
                           <IconButton
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleRemove(it.id);
+                              handleRemove(it.id, it.movieId);
                             }}
                             sx={{
                               background: "rgba(255,255,255,0.15)",

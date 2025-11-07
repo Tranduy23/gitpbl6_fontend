@@ -149,12 +149,20 @@ const UserAvatar = () => {
 
         <Divider sx={{ borderColor: "rgba(255, 255, 255, 0.1)" }} />
 
-        <MenuItemStyled onClick={handleClose}>
+        <MenuItemStyled
+          component={Link}
+          to="/favorites"
+          onClick={handleClose}
+        >
           <Favorite />
           Yêu thích
         </MenuItemStyled>
 
-        <MenuItemStyled onClick={handleClose}>
+        <MenuItemStyled
+          component={Link}
+          to="/watchlist"
+          onClick={handleClose}
+        >
           <List />
           Danh sách
         </MenuItemStyled>

@@ -68,17 +68,22 @@ export function getFavorites({ page = 0, size = 24 } = {}, token) {
   });
 }
 
-// DELETE /api/user/favorites/{id}
-export function removeFavorite(favoriteIdOrMovieId, token) {
-  if (favoriteIdOrMovieId == null)
-    throw new Error("favorite id or movie id is required");
-  return jsonFetch(
-    `/user/favorites/${encodeURIComponent(favoriteIdOrMovieId)}`,
-    {
-      method: "DELETE",
-      headers: { ...getAuthHeader(token), Accept: "*/*" },
+// DELETE /api/user/favorites/{movieId}
+export function removeFavorite(movieIdOrFavorite, token) {
+  if (movieIdOrFavorite == null) throw new Error("movie id is required");
+  const movieId = (() => {
+    if (typeof movieIdOrFavorite === "object" && movieIdOrFavorite !== null) {
+      if (movieIdOrFavorite.movieId != null) return movieIdOrFavorite.movieId;
+      if (movieIdOrFavorite.id != null) return movieIdOrFavorite.id;
     }
-  );
+    return movieIdOrFavorite;
+  })();
+  if (movieId == null) throw new Error("movie id is required");
+  const id = Number(movieId);
+  return jsonFetch(`/user/favorites/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { ...getAuthHeader(token), Accept: "*/*" },
+  });
 }
 
 export default {

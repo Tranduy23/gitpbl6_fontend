@@ -264,6 +264,31 @@ export default function Home() {
     return () => window.removeEventListener("app:toast", handler);
   }, []);
 
+  const filterByCountry = useCallback(
+    (countryName) => {
+      if (!countryName) return [];
+      const normalized = countryName.trim().toLowerCase();
+      return movies
+        .filter((movie) =>
+          String(movie.country || "")
+            .trim()
+            .toLowerCase()
+            .includes(normalized)
+        )
+        .slice(0, 5)
+        .map((m, i) => ({
+          id: m.id || i + 1,
+          title: m.title || m.englishTitle || `Movie ${i + 1}`,
+          thumb: m.thumb,
+          subtitle: m.subtitle || m.enTitle || m.engTitle,
+          episode: m.ep || m.episode,
+          pd: m.pd,
+          tm: m.tm,
+        }));
+    },
+    [movies]
+  );
+
   return (
     <Box sx={{ background: "#000" }}>
       {/* Hero Section with Background */}
@@ -312,41 +337,17 @@ export default function Home() {
       {/* Catalog sections similar to screenshot */}
       <CatalogSection
         title="Phim Hàn Quốc mới"
-        movies={movies.map((m, i) => ({
-          id: m.id || i + 1,
-          title: m.title || `Movie ${i + 1}`,
-          thumb: m.thumb,
-          subtitle: m.subtitle || m.enTitle || m.engTitle,
-          episode: m.ep || m.episode,
-          pd: m.pd,
-          tm: m.tm,
-        }))}
+        movies={filterByCountry("Korea")}
       />
 
       <CatalogSection
         title="Phim Trung Quốc mới"
-        movies={movies.map((m, i) => ({
-          id: m.id || i + 1,
-          title: m.title || `Movie ${i + 1}`,
-          thumb: m.thumb,
-          subtitle: m.subtitle || m.enTitle || m.engTitle,
-          episode: m.ep || m.episode,
-          pd: m.pd,
-          tm: m.tm,
-        }))}
+        movies={filterByCountry("China")}
       />
 
       <CatalogSection
         title="Phim US-UK mới"
-        movies={movies.map((m, i) => ({
-          id: m.id || i + 1,
-          title: m.title || `Movie ${i + 1}`,
-          thumb: m.thumb,
-          subtitle: m.subtitle || m.enTitle || m.engTitle,
-          episode: m.ep || m.episode,
-          pd: m.pd,
-          tm: m.tm,
-        }))}
+        movies={filterByCountry("United States")}
       />
       {/* Top Comments Section */}
       <TopComments />
