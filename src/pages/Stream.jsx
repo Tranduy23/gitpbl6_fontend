@@ -18,6 +18,8 @@ import {
   Tabs,
   Tab,
   Rating,
+  Snackbar,
+  Alert,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
@@ -46,12 +48,12 @@ import {
 } from "@mui/material";
 import { useAuth } from "../hooks/useAuth";
 import { listCollections, addMovieToWatchlist } from "../api/watchlist";
+import { addFavorite } from "../api/favorites";
 import {
   getStreamingInfo,
   startStreaming,
   updateStreamingQuality,
-  updatePlaybackPosition,
-  stopStreaming,
+  updateStreamingProgress,
   getAvailableSubtitles,
 } from "../api/streaming";
 import {
@@ -157,6 +159,13 @@ export default function Stream() {
   const [commentText, setCommentText] = useState("");
   const maxCommentLen = 300;
 
+  // Toast notification state
+  const [toast, setToast] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
+
   const episode = location.state?.episode ?? 1;
   const audioMode = location.state?.audioMode ?? "sub";
 
@@ -164,6 +173,8 @@ export default function Stream() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const currentTimeRef = useRef(0);
+  const durationRef = useRef(0);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -200,8 +211,16 @@ export default function Stream() {
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    const onLoaded = () => setDuration(v.duration || 0);
-    const onTime = () => setCurrentTime(v.currentTime || 0);
+    const onLoaded = () => {
+      const d = v.duration || 0;
+      setDuration(d);
+      durationRef.current = d;
+    };
+    const onTime = () => {
+      const ct = v.currentTime || 0;
+      setCurrentTime(ct);
+      currentTimeRef.current = ct;
+    };
     const onProgress = () => {
       try {
         const b = v.buffered;
@@ -237,6 +256,75 @@ export default function Stream() {
     return Number.isFinite(numericId) && numericId > 0 ? numericId : movie?.id;
   }, [id, movie]);
 
+  // Listen for toast events
+  useEffect(() => {
+    const handler = (e) => {
+      const detail = e?.detail || {};
+      setToast({
+        open: true,
+        message: detail.message || "Thao tác thành công",
+        severity: detail.severity || "success",
+      });
+    };
+    window.addEventListener("app:toast", handler);
+    return () => window.removeEventListener("app:toast", handler);
+  }, []);
+
+  // Save playback progress when component unmounts or user navigates away
+  useEffect(() => {
+    const saveProgress = () => {
+      if (!movieId || !isAuthenticated || !token) return;
+      
+      const ct = currentTimeRef.current;
+      const d = durationRef.current;
+      
+      if (!ct || !d || ct <= 0 || d <= 0) return;
+      
+      // Call API to save progress (fire and forget)
+      updateStreamingProgress(movieId, ct, d).catch((err) => {
+        console.error("Error saving playback progress:", err);
+      });
+    };
+
+    // Save progress when component unmounts
+    return () => {
+      saveProgress();
+    };
+  }, [movieId, isAuthenticated, token]);
+
+  // Save progress when user navigates away or closes tab
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!movieId || !isAuthenticated || !token) return;
+      
+      const ct = currentTimeRef.current;
+      const d = durationRef.current;
+      
+      if (!ct || !d || ct <= 0 || d <= 0) return;
+      
+      // Use fetch with keepalive for reliable delivery when page is unloading
+      const params = new URLSearchParams({
+        currentTime: String(Math.round(ct)),
+        totalTime: String(Math.round(d)),
+      });
+      const url = `${import.meta.env.VITE_API_BASE_URL || "/api"}/streaming/progress/${encodeURIComponent(movieId)}?${params.toString()}`;
+      
+      // Use fetch with keepalive for better reliability during page unload
+      fetch(url, {
+        method: "PUT",
+        keepalive: true,
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      }).catch(() => {});
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [movieId, isAuthenticated, token]);
+
   // Bootstrap streaming info and start playback
   useEffect(() => {
     let aborted = false;
@@ -263,6 +351,9 @@ export default function Stream() {
           // ignore subtitle fetch errors
         }
 
+        // Priority: location.state.startPosition > info.currentPositionSeconds > 0
+        const startPosition = location.state?.startPosition ?? info?.currentPositionSeconds ?? 0;
+        
         const started = await startStreaming({
           movieId,
           quality: info?.currentQuality || selectedQuality,
@@ -272,7 +363,7 @@ export default function Stream() {
             typeof info?.subtitleEnabled === "boolean"
               ? info.subtitleEnabled
               : subtitleEnabled,
-          startPosition: info?.currentPositionSeconds || 0,
+          startPosition: startPosition,
           autoPlay: true,
         });
         if (aborted) return;
@@ -295,7 +386,58 @@ export default function Stream() {
     return () => {
       aborted = true;
     };
-  }, [movieId]);
+  }, [movieId, location.state?.startPosition]);
+
+  // Seek to startPosition when video loads
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !videoSrc) return;
+    
+    const startPosition = location.state?.startPosition ?? 0;
+    if (startPosition <= 0) return;
+
+    const seekToStartPosition = () => {
+      if (v.readyState >= 2 && v.duration > 0) {
+        v.currentTime = Math.min(startPosition, v.duration);
+        setCurrentTime(v.currentTime);
+        currentTimeRef.current = v.currentTime;
+      }
+    };
+
+    // Try to seek when metadata is loaded
+    const handleLoadedMetadata = () => {
+      seekToStartPosition();
+      v.removeEventListener("loadedmetadata", handleLoadedMetadata);
+    };
+
+    // Try to seek when video can play
+    const handleCanPlay = () => {
+      seekToStartPosition();
+      v.removeEventListener("canplay", handleCanPlay);
+    };
+
+    // Try to seek when video can play through
+    const handleCanPlayThrough = () => {
+      seekToStartPosition();
+      v.removeEventListener("canplaythrough", handleCanPlayThrough);
+    };
+
+    v.addEventListener("loadedmetadata", handleLoadedMetadata);
+    v.addEventListener("canplay", handleCanPlay);
+    v.addEventListener("canplaythrough", handleCanPlayThrough);
+
+    // Fallback: try to seek after a short delay
+    const timeoutId = setTimeout(() => {
+      seekToStartPosition();
+    }, 500);
+
+    return () => {
+      v.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      v.removeEventListener("canplay", handleCanPlay);
+      v.removeEventListener("canplaythrough", handleCanPlayThrough);
+      clearTimeout(timeoutId);
+    };
+  }, [videoSrc, location.state?.startPosition]);
 
   // Update quality or subtitle options using startStreaming API
   const applyQualityOrSubtitleChange = async (next) => {
@@ -324,12 +466,52 @@ export default function Stream() {
         setAvailableSubtitles(res.availableSubtitles);
       if (res?.streamingUrl) {
         setVideoSrc(res.streamingUrl);
-        // Reload video source to apply new quality
+        // Reload video source to apply new quality/subtitle
         const v = videoRef.current;
         if (v) {
+          // Save current playback position
+          const savedTime = currentTimeRef.current || currentTime || 0;
+          
+          // Function to restore playback position
+          const restorePosition = () => {
+            if (v && savedTime > 0 && v.readyState >= 2) {
+              v.currentTime = savedTime;
+            }
+          };
+          
+          // Set up event listeners to restore position after video loads
+          const handleLoadedMetadata = () => {
+            restorePosition();
+            v.removeEventListener("loadedmetadata", handleLoadedMetadata);
+          };
+          
+          const handleCanPlay = () => {
+            restorePosition();
+            v.removeEventListener("canplay", handleCanPlay);
+          };
+          
+          v.addEventListener("loadedmetadata", handleLoadedMetadata);
+          v.addEventListener("canplay", handleCanPlay);
+          
           v.load();
+          
+          // Also try to set currentTime after a short delay (fallback)
+          const timeoutId = setTimeout(() => {
+            restorePosition();
+          }, 200);
+          
           if (wasPlaying) {
-            v.play().catch(() => {});
+            // Wait for video to be ready before playing
+            const handleCanPlayThrough = () => {
+              restorePosition();
+              v.play().catch(() => {});
+              v.removeEventListener("canplaythrough", handleCanPlayThrough);
+              clearTimeout(timeoutId);
+            };
+            v.addEventListener("canplaythrough", handleCanPlayThrough);
+          } else {
+            // Clear timeout if not playing
+            setTimeout(() => clearTimeout(timeoutId), 1000);
           }
         }
       }
@@ -338,34 +520,77 @@ export default function Stream() {
     }
   };
 
+  // Track consecutive API failures to avoid spamming
+  const apiFailureCountRef = useRef(0);
+  const lastSuccessfulUpdateRef = useRef(0);
+
   // Periodically persist playback position while playing
   useEffect(() => {
     if (!movieId || !isPlaying) return;
+    
+    // Skip if too many consecutive failures (more than 3)
+    if (apiFailureCountRef.current > 3) {
+      // Reset after 2 minutes
+      const resetTimeout = setTimeout(() => {
+        apiFailureCountRef.current = 0;
+      }, 120000);
+      return () => clearTimeout(resetTimeout);
+    }
+
     const interval = setInterval(() => {
-      updatePlaybackPosition({
-        movieId,
-        currentPosition: Math.floor(currentTime || 0),
-        isCompleted: false,
-      }).catch(() => {});
-    }, 15000);
+      const currentPos = Math.floor(currentTimeRef.current || currentTime || 0);
+      const dur = durationRef.current || duration || 0;
+      
+      // Skip if position hasn't changed significantly (less than 5 seconds) or no duration
+      if (Math.abs(currentPos - lastSuccessfulUpdateRef.current) < 5 || dur <= 0) {
+        return;
+      }
+
+      updateStreamingProgress(movieId, currentPos, dur)
+        .then(() => {
+          // Reset failure count on success
+          apiFailureCountRef.current = 0;
+          lastSuccessfulUpdateRef.current = currentPos;
+        })
+        .catch((err) => {
+          // Increment failure count on error
+          apiFailureCountRef.current += 1;
+          console.warn("Failed to update playback position:", err);
+          // Don't throw or show error to user, just log
+        });
+    }, 30000); // Increased to 30 seconds to reduce API calls
+    
     return () => clearInterval(interval);
-  }, [movieId, isPlaying, currentTime]);
+  }, [movieId, isPlaying]);
 
   // Stop streaming on unmount
   useEffect(() => {
     const vAtMount = videoRef.current;
     return () => {
       if (!movieId) return;
-      const pos = Math.floor(vAtMount?.currentTime || currentTime || 0);
-      const dur = Math.floor(vAtMount?.duration || duration || 0);
-      const completed = dur > 0 && pos >= Math.max(0, dur - 3);
-      stopStreaming({
-        movieId,
-        currentPosition: pos,
-        isCompleted: completed,
-      }).catch(() => {});
+      
+      // Use refs to get latest values
+      const pos = Math.floor(
+        vAtMount?.currentTime || 
+        currentTimeRef.current || 
+        currentTime || 
+        0
+      );
+      const dur = Math.floor(
+        vAtMount?.duration || 
+        durationRef.current || 
+        duration || 
+        0
+      );
+      // Save playback progress when component unmounts
+      // Use updateStreamingProgress to save the current position
+      if (pos > 0 && dur > 0) {
+        updateStreamingProgress(movieId, pos, dur).catch((err) => {
+          console.warn("Failed to save final playback position:", err);
+        });
+      }
     };
-  }, [movieId, currentTime, duration]);
+  }, [movieId]);
 
   const togglePlay = () => {
     const v = videoRef.current;
@@ -793,13 +1018,15 @@ export default function Stream() {
                   setIsPlaying(false);
                   showUi();
                   if (movieId) {
-                    updatePlaybackPosition({
-                      movieId,
-                      currentPosition: Math.floor(
-                        videoRef.current?.currentTime || 0
-                      ),
-                      isCompleted: false,
-                    }).catch(() => {});
+                    const v = videoRef.current;
+                    const pos = Math.floor(v?.currentTime || currentTimeRef.current || 0);
+                    
+                    // Use updateStreamingProgress to save playback position
+                    if (pos > 0 && durationRef.current > 0) {
+                      updateStreamingProgress(movieId, pos, durationRef.current).catch((err) => {
+                        console.warn("Failed to save playback position on pause:", err);
+                      });
+                    }
                   }
                 }}
               />
@@ -1206,7 +1433,7 @@ export default function Stream() {
           {(movie?.videoDuration || movie?.duration) && (
             <Chip
               size="small"
-              label={`${movie?.videoDuration ?? movie?.duration} phút`}
+              label={`${Math.round((movie?.videoDuration ?? movie?.duration) / 60)} phút`}
               sx={{ bgcolor: "rgba(255,255,255,0.08)", color: "#fff" }}
             />
           )}
@@ -1243,7 +1470,32 @@ export default function Stream() {
               Trailer
             </Button>
           )}
-          <Button startIcon={<FavoriteBorderIcon />} sx={{ color: "#fff" }}>
+          <Button
+            startIcon={<FavoriteBorderIcon />}
+            sx={{ color: "#fff" }}
+            onClick={async () => {
+              if (!isAuthenticated) {
+                navigate("/login");
+                return;
+              }
+              if (!movie?.id) return;
+              try {
+                await addFavorite(movie.id);
+                window.dispatchEvent(
+                  new CustomEvent("app:toast", {
+                    detail: { message: "Đã thêm vào Yêu thích", severity: "success" },
+                  })
+                );
+              } catch (err) {
+                console.error("Error adding to favorites:", err);
+                window.dispatchEvent(
+                  new CustomEvent("app:toast", {
+                    detail: { message: "Không thể thêm vào Yêu thích", severity: "error" },
+                  })
+                );
+              }
+            }}
+          >
             Yêu thích
           </Button>
           <Button
@@ -1470,7 +1722,7 @@ export default function Stream() {
                       {movie?.videoDuration && (
                         <Chip
                           size="small"
-                          label={`${movie.videoDuration} phút`}
+                          label={`${Math.round(movie.videoDuration / 60)} phút`}
                           sx={{
                             bgcolor: "rgba(255,255,255,0.08)",
                             color: "#fff",
@@ -1757,6 +2009,23 @@ export default function Stream() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Toast Notification */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={3000}
+        onClose={() => setToast((t) => ({ ...t, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          onClose={() => setToast((t) => ({ ...t, open: false }))}
+          severity={toast.severity}
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

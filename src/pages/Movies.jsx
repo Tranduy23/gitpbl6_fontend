@@ -26,19 +26,21 @@ import {
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import Header from "../components/Header";
-import useMovies from "../hooks/useMovies";
 import {
   searchMovies,
   searchByActor,
   searchByDirector,
+  getNowShowingMovies,
 } from "../api/streaming";
 
 const Movies = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { movies, loading, error } = useMovies();
+  const [movies, setMovies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showFilter, setShowFilter] = useState(false);
-  const [filteredMovies, setFilteredMovies] = useState(movies);
+  const [filteredMovies, setFilteredMovies] = useState([]);
   const [filters, setFilters] = useState({
     genre: "",
     year: "",
@@ -52,6 +54,65 @@ const Movies = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [searchMode, setSearchMode] = useState(null); // 'movie' | 'actor' | 'director'
+
+  // Load movies from now-showing API
+  useEffect(() => {
+    const loadNowShowingMovies = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await getNowShowingMovies(100); // Load more movies
+        const moviesData = Array.isArray(response) 
+          ? response 
+          : response?.content || response?.movies || response?.data || [];
+        
+        // Transform API response to match expected format
+        const transformedMovies = moviesData.map((movie) => ({
+          id: movie.id,
+          title: movie.title,
+          englishTitle: movie.title,
+          ageRating: movie.ageRating || null,
+          imdbRating: movie.imdbRating ?? null,
+          averageRating: movie.averageRating ?? null,
+          totalRatings: movie.totalRatings ?? 0,
+          year: movie.year != null ? String(movie.year) : undefined,
+          duration: movie.videoDuration || undefined,
+          genres: movie.categories || movie.genres || [],
+          synopsis: movie.synopsis || "",
+          thumb: movie.posterUrl || movie.thumbnailUrl || undefined,
+          posterUrl: movie.posterUrl || undefined,
+          videoUrl: movie.videoUrl || undefined,
+          trailerUrl: movie.trailerUrl || undefined,
+          streamingUrl: movie.streamingUrl || undefined,
+          isAvailable: Boolean(movie.isAvailable),
+          actors: movie.actors || [],
+          directors: movie.directors || [],
+          country: movie.country || movie.countryName || undefined,
+          language: movie.language || undefined,
+          viewCount: movie.viewCount ?? 0,
+          likeCount: movie.likeCount ?? 0,
+          dislikeCount: movie.dislikeCount ?? 0,
+          isFeatured: Boolean(movie.isFeatured),
+          isTrending: Boolean(movie.isTrending),
+          releaseDate: movie.releaseDate || undefined,
+          downloadEnabled: Boolean(movie.downloadEnabled),
+          availableQualities: movie.availableQualities || [],
+        }));
+        
+        setMovies(transformedMovies);
+        setFilteredMovies(transformedMovies);
+      } catch (err) {
+        console.error("Error loading now-showing movies:", err);
+        setError(err.message || "Failed to load movies");
+        setMovies([]);
+        setFilteredMovies([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadNowShowingMovies();
+  }, []);
 
   // Initialize from URL query
   useEffect(() => {
@@ -131,10 +192,8 @@ const Movies = () => {
     setFilteredMovies(current);
   }, [movies, filters]);
 
-  // Server-side search when keyword/actor/director is set; others remain client-side
-  const shouldServerSearch = Boolean(
-    filters.search || filters.actor || filters.director
-  );
+  // Disable server-side search - only show now-showing movies
+  const shouldServerSearch = false;
 
   const transformSearchResults = (data) => {
     const source = Array.isArray(data?.content)

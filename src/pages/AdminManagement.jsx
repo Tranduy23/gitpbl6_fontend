@@ -4330,22 +4330,34 @@ function UsersManagement() {
 // Dashboard Analytics component
 function DashboardAnalytics() {
   const [analytics, setAnalytics] = useState(null);
-  const [coreStats, setCoreStats] = useState(null);
-  const [trending, setTrending] = useState([]);
-  const [monthly, setMonthly] = useState([]);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [monthlyStats, setMonthlyStats] = useState([]);
+  const currentDate = new Date();
+  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1); // Current month (1-12)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     loadAnalytics();
+    loadMonthlyStats();
   }, []);
+
+  useEffect(() => {
+    loadMonthlyStats();
+    // If selected year is current year, set to current month, otherwise set to "all"
+    const now = new Date();
+    if (selectedYear === now.getFullYear()) {
+      setSelectedMonth(now.getMonth() + 1);
+    } else {
+      setSelectedMonth("all");
+    }
+  }, [selectedYear]);
 
   const loadAnalytics = async () => {
     try {
       setLoading(true);
 
-      // Try to get analytics data
+      // Get analytics data from /api/admin/dashboard
       let analyticsData = null;
       try {
         analyticsData = await adminAPI.getAdminStatistics();
@@ -4355,57 +4367,23 @@ function DashboardAnalytics() {
         // Create fallback data if API fails
         analyticsData = {
           stats: {
-            totalMovies: 5,
-            totalUsers: 12,
-            totalComments: 23,
-            totalReports: 2,
-            pendingReports: 1,
-            pendingComments: 3,
-            activeUsers: 10,
-            disabledUsers: 2,
-            averageRating: 4.2,
-            totalViews: 156,
+            totalMovies: 0,
+            totalUsers: 0,
+            totalComments: 0,
+            pendingComments: 0,
+            activeUsers: 0,
+            disabledUsers: 0,
+            averageRating: 0,
+            totalViews: 0,
             monthlyStats: null,
           },
-          recentReports: [],
           pendingComments: [],
-          recentUsers: null,
-          topMovies: null,
+          recentUsers: [],
+          topMovies: [],
         };
       }
 
-      // Core stats (/api/admin/stats)
-      try {
-        const s = await adminAPI.getAdminStats();
-        setCoreStats(s);
-      } catch (e) {
-        console.warn("Admin stats API failed", e);
-        setCoreStats(null);
-      }
-
-      // Monthly stats of selected year
-      try {
-        const m = await adminAPI.getMonthlyStats(selectedYear);
-        setMonthly(Array.isArray(m) ? m : m?.data || []);
-      } catch (e) {
-        console.warn("Monthly stats API failed", e);
-        setMonthly([]);
-      }
-
-      // Try to get trending data
-      let trendingData = [];
-      try {
-        trendingData = await adminAPI.getTrendingContent();
-        console.log("Trending API Response:", trendingData);
-      } catch (trendingError) {
-        console.error("Trending API Error:", trendingError);
-        trendingData = [];
-      }
-
       setAnalytics(analyticsData);
-      setTrending(
-        Array.isArray(trendingData) ? trendingData : trendingData.content || []
-      );
     } catch (err) {
       console.error("General Analytics Error:", err);
       setError(err.message || "Failed to load analytics");
@@ -4414,15 +4392,90 @@ function DashboardAnalytics() {
     }
   };
 
-  const handleYearChange = async (event) => {
-    const y = Number(event.target.value);
-    setSelectedYear(y);
+  const loadMonthlyStats = async () => {
     try {
-      const m = await adminAPI.getMonthlyStats(y);
-      setMonthly(Array.isArray(m) ? m : m?.data || []);
-    } catch (_) {
-      setMonthly([]);
+      const response = await adminAPI.getMonthlyStats(selectedYear);
+      const stats = Array.isArray(response) ? response : response?.data || [];
+      setMonthlyStats(stats);
+
+      // After loading, ensure selected month exists in data
+      // If current year and month is selected, check if it exists
+      const now = new Date();
+      if (selectedYear === now.getFullYear() && typeof selectedMonth === 'number') {
+        const monthExists = stats.some((m) => m.month === selectedMonth);
+        if (!monthExists && stats.length > 0) {
+          // If current month doesn't exist, select the first available month
+          const firstMonth = stats
+            .filter((m) => m.month)
+            .map((m) => m.month)
+            .sort((a, b) => a - b)[0];
+          if (firstMonth) {
+            setSelectedMonth(firstMonth);
+          } else {
+            setSelectedMonth("all");
+          }
+        } else if (!monthExists) {
+          setSelectedMonth("all");
+        }
+      }
+    } catch (err) {
+      console.warn("Monthly stats API failed", err);
+      setMonthlyStats([]);
     }
+  };
+
+  const handleYearChange = (event) => {
+    setSelectedYear(Number(event.target.value));
+  };
+
+  const handleMonthChange = (event) => {
+    setSelectedMonth(event.target.value);
+  };
+
+  const getMonthName = (monthNumber) => {
+    const months = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    return months[monthNumber - 1] || `Month ${monthNumber}`;
+  };
+
+  const getMonthOptions = () => {
+    const months = monthlyStats
+      .filter((m) => m.month)
+      .map((m) => m.month)
+      .filter((value, index, self) => self.indexOf(value) === index)
+      .sort((a, b) => a - b);
+    return months;
+  };
+
+  const getFilteredMonthlyStats = () => {
+    if (selectedMonth === "all") {
+      return monthlyStats.filter((m) => m.month);
+    }
+    return monthlyStats.filter(
+      (m) => m.month === Number(selectedMonth)
+    );
+  };
+
+  const getInitials = (name) => {
+    if (!name) return "U";
+    return name
+      .split(" ")
+      .map((word) => word.charAt(0))
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   if (loading) {
@@ -4454,14 +4507,13 @@ function DashboardAnalytics() {
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ textAlign: "center", p: 2 }}>
             <Typography variant="h4" color="primary" gutterBottom>
-              {coreStats?.totalMovies ?? analytics?.stats?.totalMovies ?? 0}
+              {analytics?.stats?.totalMovies ?? 0}
             </Typography>
             <Typography variant="h6" gutterBottom>
               Total Movies
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {coreStats?.totalComments ?? analytics?.stats?.totalComments ?? 0}{" "}
-              total comments
+              {analytics?.stats?.totalComments ?? 0} total comments
             </Typography>
           </Card>
         </Grid>
@@ -4469,14 +4521,13 @@ function DashboardAnalytics() {
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ textAlign: "center", p: 2 }}>
             <Typography variant="h4" color="secondary" gutterBottom>
-              {coreStats?.totalUsers ?? analytics?.stats?.totalUsers ?? 0}
+              {analytics?.stats?.totalUsers ?? 0}
             </Typography>
             <Typography variant="h6" gutterBottom>
               Total Users
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {coreStats?.activeUsers ?? analytics?.stats?.activeUsers ?? 0}{" "}
-              active users
+              {analytics?.stats?.activeUsers ?? 0} active users
             </Typography>
           </Card>
         </Grid>
@@ -4484,14 +4535,13 @@ function DashboardAnalytics() {
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ textAlign: "center", p: 2 }}>
             <Typography variant="h4" color="success.main" gutterBottom>
-              {coreStats?.totalViews ?? analytics?.stats?.totalViews ?? 0}
+              {analytics?.stats?.totalViews ?? 0}
             </Typography>
             <Typography variant="h6" gutterBottom>
               Total Views
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {coreStats?.averageRating ?? analytics?.stats?.averageRating ?? 0}{" "}
-              avg rating
+              {analytics?.stats?.averageRating ?? 0} avg rating
             </Typography>
           </Card>
         </Grid>
@@ -4499,21 +4549,18 @@ function DashboardAnalytics() {
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ textAlign: "center", p: 2 }}>
             <Typography variant="h4" color="warning.main" gutterBottom>
-              {coreStats?.totalReports ?? analytics?.stats?.totalReports ?? 0}
+              {analytics?.stats?.totalComments ?? 0}
             </Typography>
             <Typography variant="h6" gutterBottom>
-              Total Reports
+              Total Comments
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {coreStats?.pendingReports ??
-                analytics?.stats?.pendingReports ??
-                0}{" "}
-              pending
+              {analytics?.stats?.pendingComments ?? 0} pending
             </Typography>
           </Card>
         </Grid>
 
-        {/* Trending Content */}
+        {/* Top Movies */}
         <Grid item xs={12} md={8}>
           <Card>
             <CardHeader
@@ -4523,54 +4570,66 @@ function DashboardAnalytics() {
                   sx={{ display: "flex", alignItems: "center", gap: 1 }}
                 >
                   <TrendingIcon color="primary" />
-                  Trending Content
+                  Top Movies
                 </Typography>
               }
             />
             <CardContent>
-              {trending && trending.length > 0 ? (
+              {analytics?.topMovies && analytics.topMovies.length > 0 ? (
                 <Stack spacing={2}>
-                  {trending.slice(0, 5).map((item, index) => (
+                  {analytics.topMovies.slice(0, 5).map((movie, index) => (
                     <Box
-                      key={index}
+                      key={movie.id || index}
                       sx={{ display: "flex", alignItems: "center", gap: 2 }}
                     >
                       <Typography variant="h6" color="primary">
                         #{index + 1}
                       </Typography>
                       <Avatar
-                        src={item.posterUrl || item.thumbnailUrl}
+                        src={movie.posterUrl || movie.thumbnailUrl}
                         variant="rounded"
                         sx={{ width: 50, height: 70 }}
-                      />
+                      >
+                        {movie.title?.charAt(0) || "M"}
+                      </Avatar>
                       <Box sx={{ flexGrow: 1 }}>
                         <Typography variant="subtitle1" fontWeight="bold">
-                          {item.title}
+                          {movie.title}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          {item.totalViews || 0} views
+                          {movie.viewCount || 0} views • {movie.countryName || ""}
                         </Typography>
+                        {movie.categories && movie.categories.length > 0 && (
+                          <Box sx={{ display: "flex", gap: 0.5, mt: 0.5 }}>
+                            {movie.categories.slice(0, 2).map((cat, idx) => (
+                              <Chip
+                                key={idx}
+                                label={cat}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                              />
+                            ))}
+                          </Box>
+                        )}
                       </Box>
-                      <Chip
-                        label={item.genres?.[0] || "Unknown"}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                      />
+                      {movie.isFeatured && (
+                        <Chip label="Featured" color="primary" size="small" />
+                      )}
+                      {movie.isTrending && (
+                        <Chip
+                          label="Trending"
+                          color="secondary"
+                          size="small"
+                        />
+                      )}
                     </Box>
                   ))}
                 </Stack>
               ) : (
                 <Box sx={{ textAlign: "center", py: 4 }}>
                   <Typography color="text.secondary" variant="body1">
-                    No trending content available
-                  </Typography>
-                  <Typography
-                    color="text.secondary"
-                    variant="body2"
-                    sx={{ mt: 1 }}
-                  >
-                    Check back later for popular content
+                    No top movies available
                   </Typography>
                 </Box>
               )}
@@ -4588,50 +4647,250 @@ function DashboardAnalytics() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: 1,
                   }}
                 >
                   <Typography variant="h6">Monthly Stats</Typography>
-                  <FormControl size="small" sx={{ minWidth: 100 }}>
-                    <InputLabel>Year</InputLabel>
-                    <Select
-                      value={selectedYear}
-                      label="Year"
-                      onChange={handleYearChange}
-                    >
-                      {[0, 1, 2, 3].map((i) => {
-                        const y = new Date().getFullYear() - i;
-                        return (
-                          <MenuItem key={y} value={y}>
-                            {y}
+                  <Box sx={{ display: "flex", gap: 1 }}>
+                    <FormControl size="small" sx={{ minWidth: 100 }}>
+                      <InputLabel>Year</InputLabel>
+                      <Select
+                        value={selectedYear}
+                        label="Year"
+                        onChange={handleYearChange}
+                      >
+                        {[0, 1, 2, 3, 4].map((i) => {
+                          const y = new Date().getFullYear() - i;
+                          return (
+                            <MenuItem key={y} value={y}>
+                              {y}
+                            </MenuItem>
+                          );
+                        })}
+                      </Select>
+                    </FormControl>
+                    <FormControl size="small" sx={{ minWidth: 120 }}>
+                      <InputLabel>Month</InputLabel>
+                      <Select
+                        value={selectedMonth}
+                        label="Month"
+                        onChange={handleMonthChange}
+                      >
+                        <MenuItem value="all">All Months</MenuItem>
+                        {getMonthOptions().map((monthNum) => (
+                          <MenuItem key={monthNum} value={monthNum}>
+                            {getMonthName(monthNum)}
                           </MenuItem>
-                        );
-                      })}
-                    </Select>
-                  </FormControl>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
                 </Box>
               }
             />
             <CardContent>
-              {Array.isArray(monthly) && monthly.length > 0 ? (
-                <Stack spacing={1}>
-                  {monthly.map((m, idx) => (
-                    <Box
-                      key={idx}
-                      sx={{ display: "flex", justifyContent: "space-between" }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        {m.monthName || m.month || idx + 1}
-                      </Typography>
-                      <Typography variant="body2" fontWeight="bold">
-                        {m.value ?? m.total ?? 0}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Stack>
+              {monthlyStats && monthlyStats.length > 0 ? (
+                <Box
+                  sx={{
+                    maxHeight: 400,
+                    overflowY: "auto",
+                    "&::-webkit-scrollbar": {
+                      width: 6,
+                    },
+                    "&::-webkit-scrollbar-track": {
+                      background: "rgba(0,0,0,0.1)",
+                    },
+                    "&::-webkit-scrollbar-thumb": {
+                      background: "rgba(0,0,0,0.3)",
+                      borderRadius: 3,
+                    },
+                  }}
+                >
+                  {getFilteredMonthlyStats().length > 0 ? (
+                    <Stack spacing={2}>
+                      {getFilteredMonthlyStats().map((monthData, idx) => (
+                        <Card key={idx} variant="outlined" sx={{ p: 1.5 }}>
+                          <Typography
+                            variant="subtitle2"
+                            fontWeight="bold"
+                            gutterBottom
+                            sx={{ mb: 1 }}
+                          >
+                            {getMonthName(monthData.month)} {monthData.year}
+                          </Typography>
+                          <Grid container spacing={1}>
+                            <Grid item xs={6}>
+                              <Typography variant="caption" color="text.secondary">
+                                New Users
+                              </Typography>
+                              <Typography variant="body2" fontWeight="bold">
+                                {monthData.newUsers ?? 0}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="caption" color="text.secondary">
+                                New Movies
+                              </Typography>
+                              <Typography variant="body2" fontWeight="bold">
+                                {monthData.newMovies ?? 0}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="caption" color="text.secondary">
+                                New Comments
+                              </Typography>
+                              <Typography variant="body2" fontWeight="bold">
+                                {monthData.newComments ?? 0}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="caption" color="text.secondary">
+                                Total Views
+                              </Typography>
+                              <Typography variant="body2" fontWeight="bold">
+                                {monthData.totalViews ?? 0}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="caption" color="text.secondary">
+                                Revenue
+                              </Typography>
+                              <Typography variant="body2" fontWeight="bold">
+                                ${monthData.revenue ?? 0}
+                              </Typography>
+                            </Grid>
+                          </Grid>
+                        </Card>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No data available for selected month
+                    </Typography>
+                  )}
+                </Box>
               ) : (
                 <Typography variant="body2" color="text.secondary">
-                  No data for {selectedYear}
+                  No monthly stats available for {selectedYear}
                 </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Recent Users */}
+        <Grid item xs={12}>
+          <Card>
+            <CardHeader
+              title={
+                <Typography
+                  variant="h6"
+                  sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                >
+                  <UsersIcon color="primary" />
+                  Recent Users
+                </Typography>
+              }
+            />
+            <CardContent>
+              {analytics?.recentUsers && analytics.recentUsers.length > 0 ? (
+                <Grid container spacing={2}>
+                  {analytics.recentUsers.slice(0, 3).map((user) => (
+                    <Grid item xs={12} sm={6} md={4} key={user.id}>
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 2,
+                            }}
+                          >
+                            <Avatar
+                              src={user.avatarUrl}
+                              sx={{
+                                width: 50,
+                                height: 50,
+                                background: user.avatarUrl
+                                  ? "transparent"
+                                  : "linear-gradient(135deg, #FFD700 0%, #FFA500 100%)",
+                                color: user.avatarUrl ? "transparent" : "#000",
+                                fontWeight: 700,
+                              }}
+                            >
+                              {!user.avatarUrl &&
+                                getInitials(user.fullName || user.username)}
+                            </Avatar>
+                            <Box sx={{ flexGrow: 1 }}>
+                              <Typography variant="subtitle1" fontWeight="bold">
+                                {user.fullName || user.username}
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
+                                @{user.username}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {user.email}
+                              </Typography>
+                              <Box sx={{ display: "flex", gap: 0.5, mt: 0.5 }}>
+                                {user.roles?.map((role, idx) => (
+                                  <Chip
+                                    key={idx}
+                                    label={role}
+                                    size="small"
+                                    color={role === "ADMIN" ? "error" : "primary"}
+                                    variant="outlined"
+                                  />
+                                ))}
+                                <Chip
+                                  label={user.enabled ? "Active" : "Inactive"}
+                                  size="small"
+                                  color={user.enabled ? "success" : "default"}
+                                />
+                              </Box>
+                            </Box>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              gap: 2,
+                              mt: 2,
+                              pt: 2,
+                              borderTop: 1,
+                              borderColor: "divider",
+                            }}
+                          >
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                Comments
+                              </Typography>
+                              <Typography variant="body2" fontWeight="bold">
+                                {user.totalComments ?? 0}
+                              </Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                Movies
+                              </Typography>
+                              <Typography variant="body2" fontWeight="bold">
+                                {user.totalMovies ?? 0}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : (
+                <Box sx={{ textAlign: "center", py: 4 }}>
+                  <Typography color="text.secondary" variant="body1">
+                    No recent users available
+                  </Typography>
+                </Box>
               )}
             </CardContent>
           </Card>

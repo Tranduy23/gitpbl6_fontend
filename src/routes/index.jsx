@@ -35,6 +35,7 @@ export default function Router() {
         { path: "register", element: <RegisterPage /> },
         { path: "favorites", element: <FavoritesPage /> },
         { path: "watchlist", element: <WatchlistPage /> },
+        { path: "watch-history", element: <WatchHistoryPage /> },
         { path: "account", element: <AccountPage /> },
         { path: "admin", element: <AdminManagementPage /> },
       ],
@@ -56,6 +57,7 @@ const LoginPage = Loadable(lazy(() => import("../pages/Login")));
 const RegisterPage = Loadable(lazy(() => import("../pages/Register")));
 const FavoritesPage = Loadable(lazy(() => import("../pages/Favorites")));
 const WatchlistPage = Loadable(lazy(() => import("../pages/Watchlist")));
+const WatchHistoryPage = Loadable(lazy(() => import("../pages/WatchHistory")));
 const AccountPage = Loadable(lazy(() => import("../pages/Account")));
 const AdminManagementPage = Loadable(
   lazy(() => import("../pages/AdminManagement"))

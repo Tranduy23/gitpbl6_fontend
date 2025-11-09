@@ -167,7 +167,11 @@ const UserAvatar = () => {
           Danh sách
         </MenuItemStyled>
 
-        <MenuItemStyled onClick={handleClose}>
+        <MenuItemStyled
+          component={Link}
+          to="/watch-history"
+          onClick={handleClose}
+        >
           <History />
           Xem tiếp
         </MenuItemStyled>

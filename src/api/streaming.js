@@ -110,25 +110,18 @@ export function updateStreamingQuality(body) {
   });
 }
 
-// PUT /api/streaming/position
-// body: StreamingAPI.UpdatePositionRequest
-export function updatePlaybackPosition(body) {
-  if (!body || typeof body.movieId !== "number")
-    throw new Error("Valid body with movieId is required");
-  return jsonFetch("/streaming/position", {
-    method: "PUT",
-    body: JSON.stringify(body),
+// PUT /api/streaming/progress/{movieId}?currentTime={seconds}&totalTime={seconds}
+export function updateStreamingProgress(movieId, currentTime, totalTime) {
+  if (movieId == null) throw new Error("movieId is required");
+  const params = new URLSearchParams({
+    currentTime: String(Math.round(currentTime || 0)),
+    totalTime: String(Math.round(totalTime || 0)),
   });
-}
-
-// POST /api/streaming/stop
-// body: StreamingAPI.StopStreamingRequest
-export function stopStreaming(body) {
-  if (!body || typeof body.movieId !== "number")
-    throw new Error("Valid body with movieId is required");
-  return jsonFetch("/streaming/stop", {
-    method: "POST",
-    body: JSON.stringify(body),
+  return jsonFetch(`/streaming/progress/${encodeURIComponent(movieId)}?${params.toString()}`, {
+    method: "PUT",
+    headers: {
+      ...getAuthHeader(),
+    },
   });
 }
 
@@ -276,6 +269,14 @@ export function getTrendingMovies(limit = 10) {
   });
 }
 
+// GET /api/movies/recent-ratings?limit=
+export function getRecentRatings(limit = 5) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return jsonFetch(`/movies/recent-ratings?${params.toString()}`, {
+    method: "GET",
+  });
+}
+
 // Favorites APIs moved to src/api/favorites.js
 
 // Helper: build HLS/DASH player source from startStreaming response
@@ -294,8 +295,7 @@ export default {
   getStreamingInfo,
   startStreaming,
   updateStreamingQuality,
-  updatePlaybackPosition,
-  stopStreaming,
+  updateStreamingProgress,
   getAvailableSubtitles,
   getStreamingStatistics,
   // search exports
@@ -312,5 +312,6 @@ export default {
   getNowShowingMovies,
   getUpcomingMovies,
   getTrendingMovies,
+  getRecentRatings,
   toPlayerSource,
 };

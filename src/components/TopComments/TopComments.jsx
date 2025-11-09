@@ -12,6 +12,8 @@ import FemaleIcon from "@mui/icons-material/Female";
 import TransgenderIcon from "@mui/icons-material/Transgender";
 import AllInclusiveIcon from "@mui/icons-material/AllInclusive";
 import LocalMoviesOutlinedIcon from "@mui/icons-material/LocalMoviesOutlined";
+import StarIcon from "@mui/icons-material/Star";
+import { getRecentRatings } from "../../api/streaming";
 
 const SectionContainer = styled(Box)(({ theme }) => ({
   padding: theme.spacing(6, 0),
@@ -74,50 +76,6 @@ const RecentViewport = styled(Box)({
   borderRadius: 12,
 });
 
-// Dữ liệu mẫu cho "Bình luận mới"
-const recentComments = [
-  {
-    id: "r1",
-    user: {
-      name: "Em bông",
-      avatar: "https://i.pravatar.cc/150?img=11",
-      gender: "♀",
-    },
-    content: "Chg n ms có ph2 tr 🥲",
-    movie: "Đấu Gấu Học Nhóm",
-  },
-  {
-    id: "r2",
-    user: {
-      name: "maat",
-      avatar: "https://i.pravatar.cc/150?img=12",
-      gender: "∞",
-    },
-    content: "nhất hoàn hảo phần diễn diện nữa".slice(0, 80),
-    movie: "Dữ Tấn Trường An",
-  },
-  {
-    id: "r3",
-    user: {
-      name: "An Truong",
-      avatar: "https://i.pravatar.cc/150?img=13",
-      gender: "♂",
-    },
-    content: "ê t xem t cười quá tr",
-    movie: "Điện Hạ và Phu Nhân Kamduang",
-  },
-  {
-    id: "r4",
-    user: {
-      name: "chudu901",
-      avatar: "https://i.pravatar.cc/150?img=14",
-      gender: "♂",
-    },
-    content: "phim hay",
-    movie: "Trung Tâm Chăm Sóc Chấn Thương",
-  },
-];
-
 const TopComments = memo(() => {
   // Auto-scroll for recent comments
   const recentListRef = useRef(null);
@@ -126,6 +84,45 @@ const TopComments = memo(() => {
   const [itemHeight, setItemHeight] = useState(0);
   const [rowGap, setRowGap] = useState(0);
   const [disableTransition, setDisableTransition] = useState(false);
+  const [recentComments, setRecentComments] = useState([]);
+  // Load recent ratings from API
+  useEffect(() => {
+    const loadRecentRatings = async () => {
+      try {
+        const response = await getRecentRatings(10);
+        const ratings = Array.isArray(response) ? response : [];
+        
+        // Transform API response to match component format
+        const transformed = ratings.map((rating) => {
+          // Build full avatar URL if it's a relative path
+          let avatarUrl = rating.userAvatarUrl || "";
+          if (avatarUrl && !avatarUrl.startsWith("http") && !avatarUrl.startsWith("/api")) {
+            avatarUrl = `/api${avatarUrl}`;
+          }
+          
+          return {
+            id: rating.id || `rating-${rating.movieId}-${rating.username}`,
+            user: {
+              name: rating.username || "User",
+              avatar: avatarUrl || `https://i.pravatar.cc/150?u=${rating.username}`,
+              gender: "♂", // Default gender, API doesn't provide this
+            },
+            content: rating.comment || "",
+            movie: rating.movieTitle || "",
+            stars: rating.stars || 0,
+          };
+        });
+        
+        setRecentComments(transformed);
+      } catch (err) {
+        console.error("Error loading recent ratings:", err);
+        setRecentComments([]);
+      }
+    };
+    
+    loadRecentRatings();
+  }, []);
+
   const renderGenderIcon = (gender) => {
     if (gender === "♂")
       return <MaleIcon sx={{ fontSize: 16, color: "#4FC3F7" }} />;
@@ -151,33 +148,43 @@ const TopComments = memo(() => {
       setRowGap(measuredGap);
       setItemStep(total);
     };
-    measure();
+    // Delay measurement to ensure DOM is ready
+    const timeout = setTimeout(measure, 100);
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, []);
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener("resize", measure);
+    };
+  }, [recentComments.length]);
 
-  // Auto advance index every few seconds
+  // Reset index when recentComments changes
   useEffect(() => {
-    if (!itemStep) return;
+    setRecentIndex(0);
+    setDisableTransition(true);
+  }, [recentComments.length]);
+
+  // Auto advance index every few seconds (only if >= 4 comments)
+  useEffect(() => {
+    if (!itemStep || recentComments.length === 0 || recentComments.length < 4) return;
     const id = setInterval(() => {
       setDisableTransition(false);
       setRecentIndex((prev) => prev + 1);
     }, 3000);
     return () => clearInterval(id);
-  }, [itemStep]);
+  }, [itemStep, recentComments.length]);
 
-  // Seamless loop by resetting without transition when hitting end
+  // Seamless loop by resetting without transition when hitting end (only if >= 4 comments)
   useEffect(() => {
     const total = recentComments.length;
-    if (!total) return;
-    if (recentIndex === total) {
+    if (!total || total < 4) return;
+    if (recentIndex >= total) {
       const timeout = setTimeout(() => {
         setDisableTransition(true);
         setRecentIndex(0);
       }, 620);
       return () => clearTimeout(timeout);
     }
-  }, [recentIndex]);
+  }, [recentIndex, recentComments.length]);
 
   return (
     <SectionContainer>
@@ -204,32 +211,49 @@ const TopComments = memo(() => {
           </RecentHeader>
 
           <RecentViewport
-            sx={{ height: itemHeight ? itemHeight * 4 + rowGap * 3 : "auto" }}
+            sx={{ 
+              height: recentComments.length >= 4 
+                ? (itemHeight ? itemHeight * 4 + rowGap * 3 : "auto")
+                : "auto"
+            }}
           >
-            <RecentList
-              ref={recentListRef}
-              sx={{
-                transform: `translateY(-${recentIndex * itemStep}px)`,
-                transition: disableTransition ? "none" : "transform 600ms ease",
-              }}
-            >
-              {[...recentComments, ...recentComments].map((item, idx) => (
+            {recentComments.length > 0 ? (
+              <RecentList
+                ref={recentListRef}
+                sx={{
+                  transform: recentComments.length >= 4 ? `translateY(-${recentIndex * itemStep}px)` : "none",
+                  transition: disableTransition ? "none" : "transform 600ms ease",
+                }}
+              >
+                {(recentComments.length >= 4 ? [...recentComments, ...recentComments] : recentComments).map((item, idx) => (
                 <RecentItem key={`${item.id}-${idx}`}>
                   <Avatar src={item.user.avatar} alt={item.user.name} />
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: "#fff",
-                        fontWeight: 700,
-                        mb: 0.25,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 0.75,
-                      }}
-                    >
-                      {item.user.name} {renderGenderIcon(item.user.gender)}
-                    </Typography>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.25 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: "#fff",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {item.user.name} {renderGenderIcon(item.user.gender)}
+                      </Typography>
+                      {item.stars > 0 && (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+                          <StarIcon sx={{ fontSize: 14, color: "#FFD700" }} />
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: "#FFD700",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {item.stars}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
                     <Typography
                       variant="body2"
                       sx={{
@@ -258,8 +282,15 @@ const TopComments = memo(() => {
                     </Typography>
                   </Box>
                 </RecentItem>
-              ))}
-            </RecentList>
+                ))}
+              </RecentList>
+            ) : (
+              <Box sx={{ textAlign: "center", py: 4 }}>
+                <Typography variant="body2" color="rgba(255,255,255,0.6)">
+                  Chưa có bình luận mới
+                </Typography>
+              </Box>
+            )}
           </RecentViewport>
         </RecentSection>
       </Container>
