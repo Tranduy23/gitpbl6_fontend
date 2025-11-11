@@ -66,9 +66,18 @@ def load_labels() -> None:
                 norm: Dict[int, Dict[str, Any]] = {}
                 for idx in sorted(by_idx.keys()):
                     raw_name = by_idx[idx]
-                    pretty = raw_name.replace("_", " ")
-                    if pretty.strip().lower() == "ai pacino":
+                    # Normalize name: replace _ with space, strip trailing underscores
+                    pretty = raw_name.replace("_", " ").strip().rstrip("_").strip()
+                    # Fix special cases
+                    if pretty.lower() == "ai pacino":
                         pretty = "Al Pacino"
+                    elif pretty.lower() == "gwyneth paltrow":
+                        pretty = "Gwyneth Paltrow"
+                    # Capitalize properly (title case)
+                    words = pretty.split()
+                    if len(words) > 0:
+                        # Keep hyphenated names as-is (e.g., "Gordon-Levitt")
+                        pretty = " ".join(word.title() if "-" not in word else word for word in words)
                     norm[idx] = {"id": idx, "name": pretty}
                 LABELS = norm
                 LOGGER.info("Loaded labels from %s (classes=%s)", p, len(LABELS))
@@ -100,32 +109,64 @@ def load_labels() -> None:
             LABELS = norm
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             LOGGER.warning("Failed to load labels.json: %s, using fallback", exc)
-            # Fallback: create basic labels from known actors
+            # Fallback: create basic labels from known actors (matching label_encoder.pkl order)
             LABELS = {
-                0: {"id": 0, "name": "Amy Poehler"},
-                1: {"id": 1, "name": "Viola Davis"},
-                2: {"id": 2, "name": "Zoe Saldana"},
-                3: {"id": 3, "name": "Adam Driver"},
-                4: {"id": 4, "name": "Al Pacino"},
+                0: {"id": 0, "name": "Al Pacino"},
+                1: {"id": 1, "name": "Adam Driver"},
+                2: {"id": 2, "name": "Adrien Brody"},
+                3: {"id": 3, "name": "Amy Poehler"},
+                4: {"id": 4, "name": "Angelina Jolie"},
                 5: {"id": 5, "name": "Anne Hathaway"},
-                6: {"id": 6, "name": "Adrien Brody"},
-                7: {"id": 7, "name": "Angelina Jolie"},
-                8: {"id": 8, "name": "Cameron Diaz"},
-                9: {"id": 9, "name": "Zendaya"},
+                6: {"id": 6, "name": "Cameron Diaz"},
+                7: {"id": 7, "name": "Cate Blanchett"},
+                8: {"id": 8, "name": "Channing Tatum"},
+                9: {"id": 9, "name": "Charlize Theron"},
+                10: {"id": 10, "name": "Colin Farrell"},
+                11: {"id": 11, "name": "Courteney Cox"},
+                12: {"id": 12, "name": "Daniel Radcliffe"},
+                13: {"id": 13, "name": "Drew Barrymore"},
+                14: {"id": 14, "name": "Dwayne Johnson"},
+                15: {"id": 15, "name": "Gwyneth Paltrow"},
+                16: {"id": 16, "name": "Helen Mirren"},
+                17: {"id": 17, "name": "Jennifer Lawrence"},
+                18: {"id": 18, "name": "Jeremy Renner"},
+                19: {"id": 19, "name": "Joseph Gordon-Levitt"},
+                20: {"id": 20, "name": "Julia Roberts"},
+                21: {"id": 21, "name": "Julianne Moore"},
+                22: {"id": 22, "name": "Viola Davis"},
+                23: {"id": 23, "name": "Willem"},
+                24: {"id": 24, "name": "Zendaya"},
+                25: {"id": 25, "name": "Zoe Saldana"},
             }
     else:
-        # Fallback: create basic labels from known actors
+        # Fallback: create basic labels from known actors (matching label_encoder.pkl order)
         LABELS = {
-            0: {"id": 0, "name": "Amy Poehler"},
-            1: {"id": 1, "name": "Viola Davis"},
-            2: {"id": 2, "name": "Zoe Saldana"},
-            3: {"id": 3, "name": "Adam Driver"},
-            4: {"id": 4, "name": "Al Pacino"},
+            0: {"id": 0, "name": "Al Pacino"},
+            1: {"id": 1, "name": "Adam Driver"},
+            2: {"id": 2, "name": "Adrien Brody"},
+            3: {"id": 3, "name": "Amy Poehler"},
+            4: {"id": 4, "name": "Angelina Jolie"},
             5: {"id": 5, "name": "Anne Hathaway"},
-            6: {"id": 6, "name": "Adrien Brody"},
-            7: {"id": 7, "name": "Angelina Jolie"},
-            8: {"id": 8, "name": "Cameron Diaz"},
-            9: {"id": 9, "name": "Zendaya"},
+            6: {"id": 6, "name": "Cameron Diaz"},
+            7: {"id": 7, "name": "Cate Blanchett"},
+            8: {"id": 8, "name": "Channing Tatum"},
+            9: {"id": 9, "name": "Charlize Theron"},
+            10: {"id": 10, "name": "Colin Farrell"},
+            11: {"id": 11, "name": "Courteney Cox"},
+            12: {"id": 12, "name": "Daniel Radcliffe"},
+            13: {"id": 13, "name": "Drew Barrymore"},
+            14: {"id": 14, "name": "Dwayne Johnson"},
+            15: {"id": 15, "name": "Gwyneth Paltrow"},
+            16: {"id": 16, "name": "Helen Mirren"},
+            17: {"id": 17, "name": "Jennifer Lawrence"},
+            18: {"id": 18, "name": "Jeremy Renner"},
+            19: {"id": 19, "name": "Joseph Gordon-Levitt"},
+            20: {"id": 20, "name": "Julia Roberts"},
+            21: {"id": 21, "name": "Julianne Moore"},
+            22: {"id": 22, "name": "Viola Davis"},
+            23: {"id": 23, "name": "Willem"},
+            24: {"id": 24, "name": "Zendaya"},
+            25: {"id": 25, "name": "Zoe Saldana"},
         }
     LOGGER.info("Loaded %s labels", len(LABELS))
 
@@ -133,7 +174,13 @@ def load_labels() -> None:
 def load_model() -> None:
     global MODEL
     if MODEL is not None:
+        LOGGER.info("Model already loaded, skipping reload")
         return
+    
+    # Ensure labels are loaded first
+    if not LABELS:
+        load_labels()
+    
     ckpt_path = os.path.join(_project_root(), "face_classifier_finetuned.pth")
     if not os.path.exists(ckpt_path):
         raise FileNotFoundError(f"Checkpoint not found at {ckpt_path}")
@@ -142,10 +189,29 @@ def load_model() -> None:
     try:
         model = torch.jit.load(ckpt_path, map_location=DEVICE)
         model.eval()
+        
+        # Test model output shape
+        test_input = torch.randn(1, 3, 112, 112).to(DEVICE)
+        with torch.no_grad():
+            test_output = model(test_input)
+            if isinstance(test_output, (list, tuple)):
+                test_output = test_output[0]
+            num_model_classes = test_output.shape[1]
+            num_labels = len(LABELS)
+            LOGGER.info("TorchScript model test: output shape=%s, model classes=%s, labels=%s",
+                       tuple(test_output.shape), num_model_classes, num_labels)
+            if num_model_classes != num_labels:
+                LOGGER.error(
+                    "CRITICAL: Model has %s classes but labels.json has %s classes! "
+                    "Predictions will be incorrect. Please ensure model and labels match.",
+                    num_model_classes, num_labels
+                )
+        
         MODEL = model
         LOGGER.info("Loaded TorchScript model from %s on %s", ckpt_path, DEVICE)
         return
-    except Exception:
+    except Exception as exc:
+        LOGGER.warning("Failed to load TorchScript model: %s", exc)
         pass
 
     # Fallback: attempt to load a plain state_dict into ResNet18 + custom head
@@ -237,14 +303,28 @@ def _predict_topk(img: Image.Image, topk: int) -> List[Dict[str, Any]]:
     try:
         if MODEL is None:
             raise RuntimeError("Model is not loaded")
-        tensor = TRANSFORM(img).unsqueeze(0).to(DEVICE)  # [1, 3, 224, 224]
+        tensor = TRANSFORM(img).unsqueeze(0).to(DEVICE)  # [1, 3, 112, 112]
         with torch.no_grad():
             logits = MODEL(tensor)
             if isinstance(logits, (list, tuple)):
                 logits = logits[0]
             if not isinstance(logits, torch.Tensor):
                 raise RuntimeError("Model did not return a tensor output")
-            LOGGER.info("Logits shape: %s", tuple(logits.shape))
+            
+            # Validate number of classes
+            num_model_classes = logits.shape[1]
+            num_labels = len(LABELS)
+            if num_model_classes != num_labels:
+                LOGGER.warning(
+                    "Mismatch: Model has %s classes but labels.json has %s classes. "
+                    "This may cause incorrect predictions!",
+                    num_model_classes,
+                    num_labels,
+                )
+            
+            LOGGER.info("Logits shape: %s, Model classes: %s, Labels: %s", 
+                       tuple(logits.shape), num_model_classes, num_labels)
+            
             probs = torch.softmax(logits, dim=1)
             values, indices = torch.topk(
                 probs, k=min(topk, probs.shape[1]), dim=1
@@ -254,11 +334,14 @@ def _predict_topk(img: Image.Image, topk: int) -> List[Dict[str, Any]]:
 
         results: List[Dict[str, Any]] = []
         for score, idx in zip(values, indices):
-            label_meta = LABELS.get(int(idx), {"id": idx, "name": str(idx)})
+            idx_int = int(idx)
+            label_meta = LABELS.get(idx_int, {"id": idx_int, "name": f"Unknown_{idx_int}"})
+            predicted_name = label_meta.get("name", str(idx_int))
+            LOGGER.debug("Predicted: index=%s, name=%s, score=%.4f", idx_int, predicted_name, float(score))
             results.append(
                 {
-                    "id": label_meta.get("id", idx),
-                    "name": label_meta.get("name", str(idx)),
+                    "id": label_meta.get("id", idx_int),
+                    "name": predicted_name,
                     "score": float(score),
                 }
             )
@@ -296,6 +379,49 @@ async def _find_actor_in_db_by_name(name: str) -> Optional[Dict[str, Any]]:
     return items[0] if items else None
 
 
+@APP.get("/api/debug/model-info")
+@APP.get("/debug/model-info")
+async def get_model_info():
+    """Debug endpoint to check model and labels status"""
+    model_info = {
+        "model_loaded": MODEL is not None,
+        "device": str(DEVICE),
+        "labels_count": len(LABELS),
+        "labels": {str(k): v.get("name") for k, v in LABELS.items()},
+    }
+    
+    if MODEL is not None:
+        try:
+            # Test model output
+            test_input = torch.randn(1, 3, 112, 112).to(DEVICE)
+            with torch.no_grad():
+                test_output = MODEL(test_input)
+                if isinstance(test_output, (list, tuple)):
+                    test_output = test_output[0]
+                model_info["model_output_shape"] = list(test_output.shape)
+                model_info["model_classes"] = test_output.shape[1]
+                model_info["classes_match"] = test_output.shape[1] == len(LABELS)
+        except Exception as exc:
+            model_info["model_test_error"] = str(exc)
+    
+    return model_info
+
+
+@APP.post("/api/debug/reload")
+@APP.post("/debug/reload")
+async def reload_model():
+    """Reload model and labels"""
+    global MODEL, LABELS
+    MODEL = None
+    LABELS = {}
+    try:
+        load_labels()
+        load_model()
+        return {"status": "success", "labels_count": len(LABELS), "model_loaded": MODEL is not None}
+    except Exception as exc:
+        return {"status": "error", "error": str(exc)}
+
+
 @APP.post("/api/actors/recognize")
 @APP.post("/actors/recognize")  # alias for frontend proxy pointing to /ai
 async def recognize(
@@ -318,13 +444,14 @@ async def recognize(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
-    # Debug: log raw predictions
+    # Debug: log raw predictions with more detail
     LOGGER.info(
-        "Recognize request: topK=%s, preds=%s",
+        "Recognize request: topK=%s, total_labels=%s, preds=%s",
         topK,
+        len(LABELS),
         [
-            {"name": p.get("name"), "score": round(float(p.get("score", 0)), 4)}
-            for p in (preds or [])
+            {"name": p.get("name"), "score": round(float(p.get("score", 0)), 4), "id": p.get("id")}
+            for p in (preds or [])[:5]  # Log top 5 only
         ],
     )
 
