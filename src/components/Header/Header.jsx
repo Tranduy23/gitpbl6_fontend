@@ -393,13 +393,9 @@ const Header = () => {
       >
         <Box
           sx={{
-            display: "grid",
-            gridTemplateColumns: {
-              xs: "repeat(2, minmax(0, 1fr))",
-              sm: "repeat(3, minmax(0, 1fr))",
-              md: "repeat(4, minmax(0, 1fr))",
-            },
-            gap: 1.5,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 0.75,
             width: "100%",
           }}
         >
@@ -410,7 +406,6 @@ const Header = () => {
               onClick={() => handleSelectGenre(g)}
               clickable
               sx={{
-                justifySelf: "start",
                 color: "rgba(255,255,255,0.9)",
                 background: "rgba(255,255,255,0.08)",
                 border: "1px solid rgba(255,255,255,0.12)",
@@ -450,13 +445,9 @@ const Header = () => {
       >
         <Box
           sx={{
-            display: "grid",
-            gridTemplateColumns: {
-              xs: "repeat(2, minmax(0, 1fr))",
-              sm: "repeat(3, minmax(0, 1fr))",
-              md: "repeat(4, minmax(0, 1fr))",
-            },
-            gap: 1.5,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 0.75,
             width: "100%",
           }}
         >
@@ -467,7 +458,6 @@ const Header = () => {
               onClick={() => handleSelectCountry(c)}
               clickable
               sx={{
-                justifySelf: "start",
                 color: "rgba(255,255,255,0.9)",
                 background: "rgba(255,255,255,0.08)",
                 border: "1px solid rgba(255,255,255,0.12)",
