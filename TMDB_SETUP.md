@@ -19,7 +19,7 @@ Tạo file `.env.local` trong thư mục gốc của project với nội dung:
 VITE_TMDB_API_KEY=your_actual_api_key_here
 
 # Backend API Configuration (nếu cần)
-VITE_API_BASE_URL=http://localhost:8080/api
+VITE_API_BASE_URL=https://api.phimnhalam.website/api
 ```
 
 ### 2. Thay thế API key

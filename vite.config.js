@@ -7,14 +7,14 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:8080",
+        target: "https://api.phimnhalam.website",
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
       "/movies": {
-        target: "http://localhost:8080",
+        target: "https://api.phimnhalam.website",
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
       "/ai": {
         target: "http://localhost:8000",

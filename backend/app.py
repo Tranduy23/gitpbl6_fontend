@@ -31,16 +31,29 @@ APP.add_middleware(
 
 MODEL = None
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# Match notebook training: 112x112 and mean/std 0.5
-TRANSFORM = transforms.Compose(
-    [
-        transforms.Resize((112, 112)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
-    ]
-)
+DEFAULT_INPUT_SIZE = 112
+DEFAULT_MEAN = [0.5, 0.5, 0.5]
+DEFAULT_STD = [0.5, 0.5, 0.5]
+TRANSFORM = None
 LABELS: Dict[int, Dict[str, Any]] = {}
-MOVIE_API_BASE = os.getenv("MOVIE_API_BASE", "http://localhost:8080/api")
+MOVIE_API_BASE = os.getenv("MOVIE_API_BASE", "https://api.phimnhalam.website/api")
+
+
+def _make_transform(input_size: int, mean=None, std=None):
+    norm_mean = mean if mean is not None else [0.485, 0.456, 0.406]
+    norm_std = std if std is not None else [0.229, 0.224, 0.225]
+    return transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(input_size),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=norm_mean, std=norm_std),
+    ])
+
+
+def _ensure_transform() -> None:
+    global TRANSFORM
+    if TRANSFORM is None:
+        TRANSFORM = _make_transform(DEFAULT_INPUT_SIZE)
 
 
 def _project_root() -> str:
@@ -172,7 +185,7 @@ def load_labels() -> None:
 
 
 def load_model() -> None:
-    global MODEL
+    global MODEL, TRANSFORM
     if MODEL is not None:
         LOGGER.info("Model already loaded, skipping reload")
         return
@@ -214,27 +227,95 @@ def load_model() -> None:
         LOGGER.warning("Failed to load TorchScript model: %s", exc)
         pass
 
-    # Fallback: attempt to load a plain state_dict into ResNet18 + custom head
+    # Fallback: attempt to load a plain state_dict from training checkpoint
     try:
         state = torch.load(ckpt_path, map_location=DEVICE)
-        num_classes = max(1, len(LABELS) or 1)
-        backbone = models.resnet18(weights=None)
+        state_dict = None
+        if isinstance(state, dict):
+            for key in ("model_state_dict", "state_dict"):
+                if key in state and isinstance(state[key], dict):
+                    state_dict = state[key]
+                    break
+        if state_dict is None and isinstance(state, dict):
+            tensor_only = {k: v for k, v in state.items() if isinstance(v, torch.Tensor)}
+            state_dict = tensor_only
+
+        if not isinstance(state_dict, dict) or not state_dict:
+            raise RuntimeError("Checkpoint does not contain a valid state_dict")
+
+        model_name = str(state.get("model_name", "resnet18")).lower()
+        # Derive classifier dimensions
+        inferred_classes = None
+        hidden_dim = None
+        if "fc.4.weight" in state_dict:
+            inferred_classes = state_dict["fc.4.weight"].shape[0]
+            hidden_dim = state_dict["fc.1.weight"].shape[0] if "fc.1.weight" in state_dict else None
+        elif "fc.weight" in state_dict:
+            inferred_classes = state_dict["fc.weight"].shape[0]
+        elif len(LABELS) > 0:
+            inferred_classes = len(LABELS)
+        else:
+            raise RuntimeError("Unable to infer classifier output size from checkpoint")
+
+        input_size = int(state.get("input_size", DEFAULT_INPUT_SIZE))
+        mean = state.get("mean") or state.get("channel_mean")
+        std = state.get("std") or state.get("channel_std")
+
+        if model_name == "resnet50":
+            backbone = models.resnet50(weights=None)
+        elif model_name == "resnet34":
+            backbone = models.resnet34(weights=None)
+        else:
+            backbone = models.resnet18(weights=None)
+
         in_features = backbone.fc.in_features
-        backbone.fc = torch.nn.Sequential(
-            torch.nn.Dropout(0.5),
-            torch.nn.Linear(in_features, num_classes),
-        )
-        sd = state.get("state_dict", state)
-        missing, unexpected = backbone.load_state_dict(sd, strict=False)
-        LOGGER.info(
-            "Loaded state_dict into ResNet18 (classes=%s) missing=%s unexpected=%s",
-            num_classes,
-            len(missing),
-            len(unexpected),
-        )
+        if hidden_dim is not None and "fc.4.weight" in state_dict:
+            LOGGER.info(
+                "Configuring %s classifier head with hidden_dim=%s, num_classes=%s",
+                model_name,
+                hidden_dim,
+                inferred_classes,
+            )
+            backbone.fc = nn.Sequential(
+                nn.Dropout(p=0.5),
+                nn.Linear(in_features, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(p=0.5),
+                nn.Linear(hidden_dim, inferred_classes),
+            )
+        else:
+            LOGGER.info(
+                "Configuring %s classifier head with direct linear head (num_classes=%s)",
+                model_name,
+                inferred_classes,
+            )
+            backbone.fc = nn.Linear(in_features, inferred_classes)
+
+        missing, unexpected = backbone.load_state_dict(state_dict, strict=False)
+        if missing or unexpected:
+            LOGGER.warning(
+                "State_dict load produced missing=%s unexpected=%s",
+                missing,
+                unexpected,
+            )
+
         backbone.to(DEVICE)
         backbone.eval()
         MODEL = backbone
+
+        if isinstance(mean, (list, tuple)) and isinstance(std, (list, tuple)) and len(mean) == 3 and len(std) == 3:
+            TRANSFORM = _make_transform(input_size, mean, std)
+            LOGGER.info("Updated preprocessing transform using checkpoint mean/std (size=%s)", input_size)
+        else:
+            TRANSFORM = _make_transform(input_size)
+            LOGGER.info("Updated preprocessing transform using checkpoint input_size=%s", input_size)
+
+        if len(LABELS) and inferred_classes != len(LABELS):
+            LOGGER.warning(
+                "Checkpoint classes (%s) differ from loaded labels (%s). Predictions may be misaligned.",
+                inferred_classes,
+                len(LABELS),
+            )
         return
     except Exception as exc:
         LOGGER.warning("ResNet18 load failed, trying FaceCNN_Improved: %s", exc)
@@ -296,6 +377,7 @@ def _startup() -> None:
     except Exception:
         # Defer model load failure; endpoint will use a graceful fallback
         pass
+    _ensure_transform()
 
 
 def _predict_topk(img: Image.Image, topk: int) -> List[Dict[str, Any]]:
@@ -303,7 +385,8 @@ def _predict_topk(img: Image.Image, topk: int) -> List[Dict[str, Any]]:
     try:
         if MODEL is None:
             raise RuntimeError("Model is not loaded")
-        tensor = TRANSFORM(img).unsqueeze(0).to(DEVICE)  # [1, 3, 112, 112]
+        _ensure_transform()
+        tensor = TRANSFORM(img).unsqueeze(0).to(DEVICE)
         with torch.no_grad():
             logits = MODEL(tensor)
             if isinstance(logits, (list, tuple)):
