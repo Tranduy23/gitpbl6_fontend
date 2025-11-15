@@ -20,10 +20,7 @@ import useMovies from "../hooks/useMovies";
 import { toHero } from "../utils/imageUtils";
 
 // API
-import {
-  getNowShowingMovies,
-  getTrendingMovies,
-} from "../api/streaming";
+import { getNowShowingMovies, getTrendingMovies } from "../api/streaming";
 
 export default function Home() {
   const { movies } = useMovies();
@@ -67,23 +64,24 @@ export default function Home() {
           : [];
 
         const transformed = list.map((movie, i) => {
-          let posterUrl =
-            movie.posterUrl || movie.thumbnailUrl || movie.thumb || "";
+          // Prioritize thumbnailUrl over posterUrl
+          let thumbnailUrl =
+            movie.thumbnailUrl || movie.thumb || movie.posterUrl || "";
 
           // Normalize and prefix relative paths
-          if (posterUrl && posterUrl.startsWith("/uploads")) {
-            posterUrl = `/api${posterUrl}`;
+          if (thumbnailUrl && thumbnailUrl.startsWith("/uploads")) {
+            thumbnailUrl = `/api${thumbnailUrl}`;
           } else if (
-            posterUrl &&
-            !posterUrl.startsWith("http") &&
-            !posterUrl.startsWith("/api")
+            thumbnailUrl &&
+            !thumbnailUrl.startsWith("http") &&
+            !thumbnailUrl.startsWith("/api")
           ) {
-            posterUrl = `/api${posterUrl}`;
+            thumbnailUrl = `/api${thumbnailUrl}`;
           }
 
           // Ensure non-empty src so thumbnails render even without images
-          if (!posterUrl) {
-            posterUrl = `https://via.placeholder.com/300x300/333/fff?text=${encodeURIComponent(
+          if (!thumbnailUrl) {
+            thumbnailUrl = `https://via.placeholder.com/300x300/333/fff?text=${encodeURIComponent(
               movie.title || `Movie ${i + 1}`
             )}`;
           }
@@ -91,7 +89,7 @@ export default function Home() {
           return {
             id: movie.id ?? i + 1,
             title: movie.title || movie.englishTitle || `Movie ${i + 1}`,
-            thumb: posterUrl,
+            thumb: thumbnailUrl,
             rating:
               movie.imdbRating?.toString() ||
               movie.averageRating?.toString() ||
@@ -276,15 +274,31 @@ export default function Home() {
             .includes(normalized)
         )
         .slice(0, 5)
-        .map((m, i) => ({
-          id: m.id || i + 1,
-          title: m.title || m.englishTitle || `Movie ${i + 1}`,
-          thumb: m.thumb,
-          subtitle: m.subtitle || m.enTitle || m.engTitle,
-          episode: m.ep || m.episode,
-          pd: m.pd,
-          tm: m.tm,
-        }));
+        .map((m, i) => {
+          // Prioritize thumbnailUrl over posterUrl for catalog sections
+          let thumbnailUrl = m.thumbnailUrl || m.thumb || m.posterUrl || "";
+
+          // Normalize and prefix relative paths
+          if (thumbnailUrl && thumbnailUrl.startsWith("/uploads")) {
+            thumbnailUrl = `/api${thumbnailUrl}`;
+          } else if (
+            thumbnailUrl &&
+            !thumbnailUrl.startsWith("http") &&
+            !thumbnailUrl.startsWith("/api")
+          ) {
+            thumbnailUrl = `/api${thumbnailUrl}`;
+          }
+
+          return {
+            id: m.id || i + 1,
+            title: m.title || m.englishTitle || `Movie ${i + 1}`,
+            thumb: thumbnailUrl,
+            subtitle: m.subtitle || m.enTitle || m.engTitle,
+            episode: m.ep || m.episode,
+            pd: m.pd,
+            tm: m.tm,
+          };
+        });
     },
     [movies]
   );

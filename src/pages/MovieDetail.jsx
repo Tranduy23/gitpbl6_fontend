@@ -192,7 +192,12 @@ export default function MovieDetail() {
   const [userRating, setUserRating] = useState(null); // {id, stars, comment}
   const [userStars, setUserStars] = useState(3); // Mặc định 3 sao
   const [userComment, setUserComment] = useState("");
-  const [movieRatings, setMovieRatings] = useState({ items: [], page: 0, size: 10, totalPages: 1 });
+  const [movieRatings, setMovieRatings] = useState({
+    items: [],
+    page: 0,
+    size: 10,
+    totalPages: 1,
+  });
   const [ratingBusy, setRatingBusy] = useState(false);
   // Inline edit controls removed; use a dedicated "Đánh giá của bạn" section instead
 
@@ -202,13 +207,22 @@ export default function MovieDetail() {
     (async () => {
       try {
         const list = await listPublicUsers();
-        const arr = Array.isArray(list) ? list : Array.isArray(list?.items) ? list.items : [];
+        const arr = Array.isArray(list)
+          ? list
+          : Array.isArray(list?.items)
+          ? list.items
+          : [];
         const map = {};
         for (const u of arr) {
           const id = u?.id;
           if (id == null) continue;
           map[id] = {
-            name: u.fullName || u.username || u.displayName || u.email || `Người dùng ${id}`,
+            name:
+              u.fullName ||
+              u.username ||
+              u.displayName ||
+              u.email ||
+              `Người dùng ${id}`,
             avatar: u.avatarUrl || u.avatar || u.imageUrl || "",
           };
         }
@@ -223,7 +237,10 @@ export default function MovieDetail() {
         if (!user?.id) return;
         const info = await getPublicUser(user.id);
         if (info?.id) {
-          setUsersMap((m) => ({ ...m, [info.id]: { name: info.name, avatar: info.avatar } }));
+          setUsersMap((m) => ({
+            ...m,
+            [info.id]: { name: info.name, avatar: info.avatar },
+          }));
         }
       } catch (_) {}
     })();
@@ -258,14 +275,25 @@ export default function MovieDetail() {
     if (Number(r.userId ?? r.userID ?? r.user_id) === Number(user?.id)) {
       return user?.avatar || user?.avatarUrl || user?.imageUrl || "";
     }
-    return r.userAvatar || r.avatar || r.avatarUrl || r.imageUrl || (r.user && (r.user.avatar || r.user.avatarUrl || r.user.imageUrl)) || "";
+    return (
+      r.userAvatar ||
+      r.avatar ||
+      r.avatarUrl ||
+      r.imageUrl ||
+      (r.user && (r.user.avatar || r.user.avatarUrl || r.user.imageUrl)) ||
+      ""
+    );
   };
 
   useEffect(() => {
     (async () => {
       try {
         if (!movie?.id) return;
-        const list = await getMovieRatings(Number(movie.id), { page: 0, size: 10 }, token);
+        const list = await getMovieRatings(
+          Number(movie.id),
+          { page: 0, size: 10 },
+          token
+        );
         const items = Array.isArray(list?.items)
           ? list.items
           : Array.isArray(list?.content)
@@ -291,7 +319,11 @@ export default function MovieDetail() {
     (async () => {
       try {
         if (!movie?.id || !token || !isAuthenticated) return;
-        const r = await getUserRatingForMovie(Number(movie.id), token, user?.id);
+        const r = await getUserRatingForMovie(
+          Number(movie.id),
+          token,
+          user?.id
+        );
         if (r && typeof r?.stars === "number") {
           setUserRating(r);
           setUserStars(r.stars);
@@ -319,15 +351,32 @@ export default function MovieDetail() {
       setRatingBusy(true);
       // Nếu không chọn sao, mặc định là 3 sao
       const stars = userStars || 3;
-      const payload = { movieId: Number(movie.id), stars: stars, comment: userComment?.trim() };
+      const payload = {
+        movieId: Number(movie.id),
+        stars: stars,
+        comment: userComment?.trim(),
+      };
       let saved;
-      if (userRating?.id) saved = await updateRating(userRating.id, { stars: stars, comment: userComment }, token);
+      if (userRating?.id)
+        saved = await updateRating(
+          userRating.id,
+          { stars: stars, comment: userComment },
+          token
+        );
       else saved = await createRating(payload, token);
       setUserRating(saved || payload);
-      setSnack({ open: true, message: userRating?.id ? "Đã cập nhật đánh giá" : "Đã gửi đánh giá", severity: "success" });
+      setSnack({
+        open: true,
+        message: userRating?.id ? "Đã cập nhật đánh giá" : "Đã gửi đánh giá",
+        severity: "success",
+      });
       // refresh list
       try {
-        const list = await getMovieRatings(Number(movie.id), { page: 0, size: 10 }, token);
+        const list = await getMovieRatings(
+          Number(movie.id),
+          { page: 0, size: 10 },
+          token
+        );
         const items = Array.isArray(list?.items)
           ? list.items
           : Array.isArray(list?.content)
@@ -335,10 +384,19 @@ export default function MovieDetail() {
           : Array.isArray(list)
           ? list
           : [];
-        setMovieRatings({ items, page: list?.page ?? 0, size: list?.size ?? 10, totalPages: list?.totalPages ?? 1 });
+        setMovieRatings({
+          items,
+          page: list?.page ?? 0,
+          size: list?.size ?? 10,
+          totalPages: list?.totalPages ?? 1,
+        });
       } catch (_) {}
     } catch (_) {
-      setSnack({ open: true, message: "Không thể gửi đánh giá", severity: "error" });
+      setSnack({
+        open: true,
+        message: "Không thể gửi đánh giá",
+        severity: "error",
+      });
     } finally {
       setRatingBusy(false);
     }
@@ -355,12 +413,29 @@ export default function MovieDetail() {
       setSnack({ open: true, message: "Đã xoá đánh giá", severity: "success" });
       // refresh list
       try {
-        const list = await getMovieRatings(Number(movie.id), { page: 0, size: 10 }, token);
-        const items = Array.isArray(list?.items) ? list.items : Array.isArray(list) ? list : [];
-        setMovieRatings({ items, page: list?.page ?? 0, size: list?.size ?? 10, totalPages: list?.totalPages ?? 1 });
+        const list = await getMovieRatings(
+          Number(movie.id),
+          { page: 0, size: 10 },
+          token
+        );
+        const items = Array.isArray(list?.items)
+          ? list.items
+          : Array.isArray(list)
+          ? list
+          : [];
+        setMovieRatings({
+          items,
+          page: list?.page ?? 0,
+          size: list?.size ?? 10,
+          totalPages: list?.totalPages ?? 1,
+        });
       } catch (_) {}
     } catch (_) {
-      setSnack({ open: true, message: "Không thể xoá đánh giá", severity: "error" });
+      setSnack({
+        open: true,
+        message: "Không thể xoá đánh giá",
+        severity: "error",
+      });
     } finally {
       setRatingBusy(false);
     }
@@ -618,16 +693,25 @@ export default function MovieDetail() {
                           <strong>Ngôn ngữ:</strong> {movie.language}
                         </Typography>
                       )}
-                      {Array.isArray(movie.directors) &&
-                        movie.directors.length > 0 && (
+                      {(() => {
+                        const directorValue =
+                          movie.directorName ||
+                          (Array.isArray(movie.directors) &&
+                          movie.directors.length > 0
+                            ? movie.directors.join(", ")
+                            : typeof movie.directors === "string" &&
+                              movie.directors.trim()
+                            ? movie.directors.trim()
+                            : "");
+                        return directorValue ? (
                           <Typography
                             variant="body2"
                             sx={{ mt: 1, color: "rgba(255,255,255,0.85)" }}
                           >
-                            <strong>Đạo diễn:</strong>{" "}
-                            {movie.directors.join(", ")}
+                            <strong>Đạo diễn:</strong> {directorValue}
                           </Typography>
-                        )}
+                        ) : null;
+                      })()}
                     </Box>
                   )}
 
@@ -1122,8 +1206,7 @@ export default function MovieDetail() {
                   </Box>
                 )}
 
-                {/* Comments & Ratings Section inside right column */
-                }
+                {/* Comments & Ratings Section inside right column */}
                 <Box sx={{ mt: 5 }}>
                   <Stack
                     direction="row"
@@ -1147,53 +1230,113 @@ export default function MovieDetail() {
                   <Stack spacing={2}>
                     {[...movieRatings.items]
                       .sort((a, b) => {
-                        const au = Number(a.userId ?? a.userID ?? a.user_id) === Number(user?.id);
-                        const bu = Number(b.userId ?? b.userID ?? b.user_id) === Number(user?.id);
+                        const au =
+                          Number(a.userId ?? a.userID ?? a.user_id) ===
+                          Number(user?.id);
+                        const bu =
+                          Number(b.userId ?? b.userID ?? b.user_id) ===
+                          Number(user?.id);
                         if (au && !bu) return -1;
                         if (!au && bu) return 1;
-                        const at = new Date(a.createdAt || a.created_at || 0).getTime();
-                        const bt = new Date(b.createdAt || b.created_at || 0).getTime();
+                        const at = new Date(
+                          a.createdAt || a.created_at || 0
+                        ).getTime();
+                        const bt = new Date(
+                          b.createdAt || b.created_at || 0
+                        ).getTime();
                         return bt - at; // newest next
                       })
                       .map((r, idx) => {
-                      const name = getReviewerName(r);
-                      const ava = getReviewerAvatar(r);
-                      const fallback = `https://i.pravatar.cc/150?img=${(idx % 70) + 1}`;
-                      const isOwn = Number(r.userId ?? r.userID ?? r.user_id) === Number(user?.id);
-                      return (
-                        <Stack key={r.id} direction="row" spacing={2}>
-                          <Avatar src={ava || fallback} sx={{ width: 36, height: 36 }}>
-                            {(name || "U").charAt(0)}
-                          </Avatar>
-                          <Box sx={{ flex: 1 }}>
-                            <Stack direction="row" alignItems="center" spacing={1}>
-                              <Typography variant="subtitle2" fontWeight={700}>{name}</Typography>
-                              {isOwn && (
-                                <Typography variant="caption" sx={{ color: "#FFD700", fontWeight: 800, ml: 1 }}>
-                                  • Của bạn
+                        const name = getReviewerName(r);
+                        const ava = getReviewerAvatar(r);
+                        const fallback = `https://i.pravatar.cc/150?img=${
+                          (idx % 70) + 1
+                        }`;
+                        const isOwn =
+                          Number(r.userId ?? r.userID ?? r.user_id) ===
+                          Number(user?.id);
+                        return (
+                          <Stack key={r.id} direction="row" spacing={2}>
+                            <Avatar
+                              src={ava || fallback}
+                              sx={{ width: 36, height: 36 }}
+                            >
+                              {(name || "U").charAt(0)}
+                            </Avatar>
+                            <Box sx={{ flex: 1 }}>
+                              <Stack
+                                direction="row"
+                                alignItems="center"
+                                spacing={1}
+                              >
+                                <Typography
+                                  variant="subtitle2"
+                                  fontWeight={700}
+                                >
+                                  {name}
+                                </Typography>
+                                {isOwn && (
+                                  <Typography
+                                    variant="caption"
+                                    sx={{
+                                      color: "#FFD700",
+                                      fontWeight: 800,
+                                      ml: 1,
+                                    }}
+                                  >
+                                    • Của bạn
+                                  </Typography>
+                                )}
+                                <Typography
+                                  variant="caption"
+                                  color="rgba(255,255,255,0.6)"
+                                >
+                                  {new Date(
+                                    r.createdAt || r.created_at || Date.now()
+                                  ).toLocaleString()}
+                                </Typography>
+                              </Stack>
+                              <Stack
+                                direction="row"
+                                alignItems="center"
+                                spacing={1}
+                                sx={{ mt: 0.5 }}
+                              >
+                                <Rating
+                                  value={Number(r.stars) || 0}
+                                  readOnly
+                                  size="small"
+                                />
+                                <Typography
+                                  variant="caption"
+                                  color="rgba(255,255,255,0.7)"
+                                >
+                                  {r.stars}/5
+                                </Typography>
+                              </Stack>
+                              {r.comment && (
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    color: "rgba(255,255,255,0.85)",
+                                    mt: 0.5,
+                                  }}
+                                >
+                                  {r.comment}
                                 </Typography>
                               )}
-                              <Typography variant="caption" color="rgba(255,255,255,0.6)">
-                                {new Date(r.createdAt || r.created_at || Date.now()).toLocaleString()}
-                              </Typography>
-                            </Stack>
-                            <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
-                              <Rating value={Number(r.stars) || 0} readOnly size="small" />
-                              <Typography variant="caption" color="rgba(255,255,255,0.7)">{r.stars}/5</Typography>
-                            </Stack>
-                            {r.comment && (
-                              <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.85)", mt: 0.5 }}>
-                                {r.comment}
-                              </Typography>
-                            )}
-                          </Box>
-                        </Stack>
-                      );
-                    })}
+                            </Box>
+                          </Stack>
+                        );
+                      })}
                   </Stack>
 
                   {/* Personal review card */}
-                  <Typography variant="subtitle1" fontWeight={800} sx={{ mt: 3, mb: 1 }}>
+                  <Typography
+                    variant="subtitle1"
+                    fontWeight={800}
+                    sx={{ mt: 3, mb: 1 }}
+                  >
                     Đánh giá của bạn
                   </Typography>
                   <Stack
@@ -1209,14 +1352,37 @@ export default function MovieDetail() {
                       backdropFilter: "blur(8px)",
                     }}
                   >
-                    <Avatar alt="Bạn" src={user?.avatar || user?.avatarUrl || user?.imageUrl || ""} sx={{ width: 40, height: 40 }} />
+                    <Avatar
+                      alt="Bạn"
+                      src={
+                        user?.avatar || user?.avatarUrl || user?.imageUrl || ""
+                      }
+                      sx={{ width: 40, height: 40 }}
+                    />
                     <Stack spacing={1} sx={{ flex: 1 }}>
-                      <Typography variant="subtitle2" fontWeight={700} sx={{ color: "rgba(255,255,255,0.9)" }}>
-                        {user?.fullName || user?.username || user?.displayName || user?.name || user?.email || "Bạn"}
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={700}
+                        sx={{ color: "rgba(255,255,255,0.9)" }}
+                      >
+                        {user?.fullName ||
+                          user?.username ||
+                          user?.displayName ||
+                          user?.name ||
+                          user?.email ||
+                          "Bạn"}
                       </Typography>
                       <Stack direction="row" alignItems="center" spacing={1}>
-                        <Rating value={Number(userStars) || 3} precision={1} max={5} onChange={(_, v) => setUserStars(v || 3)} />
-                        <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)" }}>
+                        <Rating
+                          value={Number(userStars) || 3}
+                          precision={1}
+                          max={5}
+                          onChange={(_, v) => setUserStars(v || 3)}
+                        />
+                        <Typography
+                          variant="caption"
+                          sx={{ color: "rgba(255,255,255,0.7)" }}
+                        >
                           {userStars ? `${userStars}/5` : "3/5"}
                         </Typography>
                       </Stack>
@@ -1233,19 +1399,49 @@ export default function MovieDetail() {
                           "& .MuiOutlinedInput-root": {
                             color: "#fff",
                             bgcolor: "#111",
-                            "& fieldset": { borderColor: "rgba(255,255,255,0.2)" },
-                            "&:hover fieldset": { borderColor: "rgba(255,255,255,0.35)" },
-                            "&.Mui-focused fieldset": { borderColor: "#FFD700" },
+                            "& fieldset": {
+                              borderColor: "rgba(255,255,255,0.2)",
+                            },
+                            "&:hover fieldset": {
+                              borderColor: "rgba(255,255,255,0.35)",
+                            },
+                            "&.Mui-focused fieldset": {
+                              borderColor: "#FFD700",
+                            },
                           },
                         }}
                       />
-                      <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                      <Stack
+                        direction="row"
+                        justifyContent="flex-end"
+                        spacing={1}
+                      >
                         {userRating?.id && (
-                          <Button variant="outlined" onClick={removeRating} disabled={ratingBusy} sx={{ color: "#fff", borderColor: "rgba(255,255,255,0.2)" }}>
+                          <Button
+                            variant="outlined"
+                            onClick={removeRating}
+                            disabled={ratingBusy}
+                            sx={{
+                              color: "#fff",
+                              borderColor: "rgba(255,255,255,0.2)",
+                            }}
+                          >
                             Xoá
                           </Button>
                         )}
-                        <Button endIcon={<SendIcon />} onClick={submitRating} disabled={ratingBusy} sx={{ color: "#000", bgcolor: "#FFD700", fontWeight: 700, px: 2, borderRadius: 999, ":hover": { bgcolor: "#FFC107" } }}>
+                        <Button
+                          endIcon={<SendIcon />}
+                          onClick={submitRating}
+                          disabled={ratingBusy}
+                          sx={{
+                            color: "#000",
+                            bgcolor: "#FFD700",
+                            fontWeight: 700,
+                            px: 2,
+                            borderRadius: 999,
+                            ":hover": { bgcolor: "#FFC107" },
+                          }}
+                        >
                           {userRating?.id ? "Cập nhật" : "Gửi"}
                         </Button>
                       </Stack>
