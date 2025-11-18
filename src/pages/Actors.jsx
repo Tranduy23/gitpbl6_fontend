@@ -73,18 +73,23 @@ export default function Actors() {
   const itemsPerPage = 20;
 
   const debouncedQuery = useDebounce(q, 300);
+  const prevQueryRef = useRef(debouncedQuery);
 
+  // Reset to page 1 when search query changes
   useEffect(() => {
-    if (!imageSearching) {
+    if (!imageSearching && prevQueryRef.current !== debouncedQuery) {
+      prevQueryRef.current = debouncedQuery;
       setCurrentPage(1);
-      load(0);
+      // Don't load here, let the next useEffect handle it
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery]);
 
+  // Load data when page changes (including when reset to page 1)
   useEffect(() => {
-    if (!imageSearching && currentPage > 1) {
-      load(currentPage - 1);
+    if (!imageSearching) {
+      const pageToLoad = currentPage - 1; // Convert 1-based to 0-based
+      load(pageToLoad);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
@@ -93,7 +98,11 @@ export default function Actors() {
     try {
       setLoading(true);
       setError("");
-      const data = await listActors({ q: debouncedQuery, page, size: itemsPerPage });
+      const data = await listActors({
+        q: debouncedQuery,
+        page,
+        size: itemsPerPage,
+      });
       const list = Array.isArray(data?.content)
         ? data.content
         : Array.isArray(data)
@@ -101,7 +110,7 @@ export default function Actors() {
         : [];
       setItems(list);
       pageRef.current = page;
-      
+
       // Update pagination info
       if (data?.totalPages != null) {
         setTotalPages(data.totalPages);
@@ -111,7 +120,7 @@ export default function Actors() {
         // Estimate based on current page and items count
         setTotalPages(list.length < itemsPerPage ? page + 1 : page + 2);
       }
-      
+
       if (data?.totalElements != null) {
         setTotalElements(data.totalElements);
       } else {
