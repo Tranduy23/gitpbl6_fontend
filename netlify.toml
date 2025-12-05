@@ -2,7 +2,7 @@
   command = "npm ci --legacy-peer-deps && npm run build"
   publish = "dist"
 [build.environment]
-  NODE_VERSION = "18.17.1"
+  NODE_VERSION = "22"
   VITE_API_BASE_URL = "https://api.phimnhalam.website/api"
   VITE_API_URL = "https://api.phimnhalam.website"
 
