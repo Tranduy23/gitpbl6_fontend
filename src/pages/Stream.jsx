@@ -189,6 +189,8 @@ export default function Stream() {
     useState("English");
   const [subtitleEnabled, setSubtitleEnabled] = useState(true);
   const [currentSubtitleTrack, setCurrentSubtitleTrack] = useState(null);
+  const [subtitleRenderTrack, setSubtitleRenderTrack] = useState(null);
+  const subtitleBlobUrlRef = useRef(null);
   const [videoSrc, setVideoSrc] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [collections, setCollections] = useState([]);
@@ -442,6 +444,69 @@ export default function Stream() {
       setCurrentSubtitleTrack(null);
     }
   }, [availableSubtitles, selectedSubtitleLanguage, subtitleEnabled]);
+
+  const convertSrtToVtt = (srtText) => {
+    // Basic SRT -> WebVTT conversion: replace comma in timestamps and prepend header
+    const body = srtText
+      .replace(/\r+/g, "")
+      .split("\n")
+      .map((line) => line.trimEnd())
+      .join("\n")
+      .replace(/(\d\d:\d\d:\d\d),(\d\d\d)/g, "$1.$2");
+    return `WEBVTT\n\n${body}`;
+  };
+
+  // Prepare renderable subtitle track (convert SRT to VTT blob if needed)
+  useEffect(() => {
+    let cancelled = false;
+    const cleanupBlob = () => {
+      if (subtitleBlobUrlRef.current) {
+        URL.revokeObjectURL(subtitleBlobUrlRef.current);
+        subtitleBlobUrlRef.current = null;
+      }
+    };
+
+    if (!subtitleEnabled || !currentSubtitleTrack?.url) {
+      cleanupBlob();
+      setSubtitleRenderTrack(null);
+      return;
+    }
+
+    const srcUrl = currentSubtitleTrack.url;
+    const isSrt = /\.srt(\?|$)/i.test(srcUrl);
+
+    if (!isSrt) {
+      cleanupBlob();
+      setSubtitleRenderTrack({ ...currentSubtitleTrack, renderUrl: srcUrl });
+      return;
+    }
+
+    (async () => {
+      try {
+        const res = await fetch(srcUrl);
+        const text = await res.text();
+        if (cancelled) return;
+        const vtt = convertSrtToVtt(text);
+        cleanupBlob();
+        const blob = new Blob([vtt], { type: "text/vtt" });
+        const objUrl = URL.createObjectURL(blob);
+        subtitleBlobUrlRef.current = objUrl;
+        if (!cancelled) {
+          setSubtitleRenderTrack({
+            ...currentSubtitleTrack,
+            renderUrl: objUrl,
+          });
+        }
+      } catch (_) {
+        if (!cancelled) setSubtitleRenderTrack(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      cleanupBlob();
+    };
+  }, [subtitleEnabled, currentSubtitleTrack]);
 
   // Seek to startPosition when video loads
   useEffect(() => {
@@ -1143,14 +1208,15 @@ export default function Stream() {
                     }
                   }
                 }}
+                crossOrigin="anonymous"
               >
-                {subtitleEnabled && currentSubtitleTrack?.url && (
+                {subtitleEnabled && subtitleRenderTrack?.renderUrl && (
                   <track
-                    key={`${currentSubtitleTrack.url}-${currentSubtitleTrack.lang}`}
+                    key={`${subtitleRenderTrack.renderUrl}-${subtitleRenderTrack.lang}`}
                     kind="subtitles"
-                    src={currentSubtitleTrack.url}
-                    srcLang={currentSubtitleTrack.lang}
-                    label={currentSubtitleTrack.label}
+                    src={subtitleRenderTrack.renderUrl}
+                    srcLang={subtitleRenderTrack.lang}
+                    label={subtitleRenderTrack.label}
                     default
                   />
                 )}
