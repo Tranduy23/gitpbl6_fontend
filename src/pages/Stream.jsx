@@ -70,7 +70,12 @@ const toCdnProxy = (url) => {
   if (!url) return url;
   try {
     const u = new URL(url, window.location.origin);
-    if (u.hostname === CDN_HOST) {
+    const isLocal =
+      typeof window !== "undefined" &&
+      ["localhost", "127.0.0.1"].includes(window.location.hostname);
+
+    // Only rewrite to dev proxy when running locally; keep absolute CDN URL in prod
+    if (isLocal && u.hostname === CDN_HOST) {
       return `/cdn${u.pathname}${u.search}${u.hash}`;
     }
     return url;

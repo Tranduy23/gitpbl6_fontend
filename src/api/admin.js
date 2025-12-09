@@ -364,12 +364,22 @@ export function uploadMovieTrailer(movieId, trailerFile) {
 }
 
 // POST /api/admin/movies/{id}/subtitle
-export function uploadMovieSubtitle(movieId, subtitleFile) {
+export function uploadMovieSubtitle(movieId, subtitleFile, subtitleMeta = {}) {
   if (!movieId) throw new Error("movieId is required");
   if (!subtitleFile) throw new Error("subtitleFile is required");
 
   const formData = new FormData();
   formData.append("subtitle", subtitleFile);
+
+  // Some backends expect subtitle metadata as request params in multipart
+  const languageCode = subtitleMeta.languageCode || "vi";
+  const languageName = subtitleMeta.languageName || "Vietnamese";
+  const isDefault =
+    subtitleMeta.isDefault !== undefined ? subtitleMeta.isDefault : true;
+
+  formData.append("languageCode", languageCode);
+  formData.append("languageName", languageName);
+  formData.append("isDefault", String(isDefault));
 
   return formDataFetch(
     `/admin/movies/${encodeURIComponent(movieId)}/subtitle`,
