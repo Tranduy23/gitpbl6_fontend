@@ -154,7 +154,7 @@ export default function Stream() {
     };
   }, [castList]);
 
-  // Comments UI state
+  // Comments UI state\\\\\\\\\\0
   const [commentTab, setCommentTab] = useState("comment"); // comment | review
   const [commentText, setCommentText] = useState("");
   const maxCommentLen = 300;
@@ -188,6 +188,7 @@ export default function Stream() {
   const [selectedSubtitleLanguage, setSelectedSubtitleLanguage] =
     useState("English");
   const [subtitleEnabled, setSubtitleEnabled] = useState(true);
+  const [currentSubtitleTrack, setCurrentSubtitleTrack] = useState(null);
   const [videoSrc, setVideoSrc] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [collections, setCollections] = useState([]);
@@ -244,7 +245,10 @@ export default function Stream() {
         if (!user?.id) return;
         const info = await getPublicUser(user.id);
         if (info?.id) {
-          setUsersMap((m) => ({ ...m, [info.id]: { name: info.name, avatar: info.avatar } }));
+          setUsersMap((m) => ({
+            ...m,
+            [info.id]: { name: info.name, avatar: info.avatar },
+          }));
         }
       } catch (_) {}
     })();
@@ -274,12 +278,12 @@ export default function Stream() {
   useEffect(() => {
     const saveProgress = () => {
       if (!movieId || !isAuthenticated || !token) return;
-      
+
       const ct = currentTimeRef.current;
       const d = durationRef.current;
-      
+
       if (!ct || !d || ct <= 0 || d <= 0) return;
-      
+
       // Call API to save progress (fire and forget)
       updateStreamingProgress(movieId, ct, d).catch((err) => {
         console.error("Error saving playback progress:", err);
@@ -296,19 +300,21 @@ export default function Stream() {
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (!movieId || !isAuthenticated || !token) return;
-      
+
       const ct = currentTimeRef.current;
       const d = durationRef.current;
-      
+
       if (!ct || !d || ct <= 0 || d <= 0) return;
-      
+
       // Use fetch with keepalive for reliable delivery when page is unloading
       const params = new URLSearchParams({
         currentTime: String(Math.round(ct)),
         totalTime: String(Math.round(d)),
       });
-      const url = `${import.meta.env.VITE_API_BASE_URL || "/api"}/streaming/progress/${encodeURIComponent(movieId)}?${params.toString()}`;
-      
+      const url = `${
+        import.meta.env.VITE_API_BASE_URL || "/api"
+      }/streaming/progress/${encodeURIComponent(movieId)}?${params.toString()}`;
+
       // Use fetch with keepalive for better reliability during page unload
       fetch(url, {
         method: "PUT",
@@ -352,8 +358,9 @@ export default function Stream() {
         }
 
         // Priority: location.state.startPosition > info.currentPositionSeconds > 0
-        const startPosition = location.state?.startPosition ?? info?.currentPositionSeconds ?? 0;
-        
+        const startPosition =
+          location.state?.startPosition ?? info?.currentPositionSeconds ?? 0;
+
         const started = await startStreaming({
           movieId,
           quality: info?.currentQuality || selectedQuality,
@@ -388,11 +395,59 @@ export default function Stream() {
     };
   }, [movieId, location.state?.startPosition]);
 
+  // Keep selected subtitle in sync with available list (pick default/fallback)
+  useEffect(() => {
+    if (!availableSubtitles?.length) return;
+    const hasSelected = availableSubtitles.some((s) => {
+      const lang = s?.language?.toLowerCase?.() || "";
+      const code = s?.languageCode?.toLowerCase?.() || "";
+      const selected = (selectedSubtitleLanguage || "").toLowerCase();
+      return selected && (lang === selected || code === selected);
+    });
+    if (!hasSelected) {
+      const fallback =
+        availableSubtitles.find((s) => s?.isDefault) || availableSubtitles[0];
+      if (fallback?.language) setSelectedSubtitleLanguage(fallback.language);
+      else if (fallback?.languageCode)
+        setSelectedSubtitleLanguage(fallback.languageCode);
+    }
+  }, [availableSubtitles, selectedSubtitleLanguage]);
+
+  // Build current subtitle track for the <track> element
+  useEffect(() => {
+    if (!subtitleEnabled || !availableSubtitles?.length) {
+      setCurrentSubtitleTrack(null);
+      return;
+    }
+    const selected =
+      availableSubtitles.find((s) => {
+        const lang = s?.language?.toLowerCase?.() || "";
+        const code = s?.languageCode?.toLowerCase?.() || "";
+        const target = (selectedSubtitleLanguage || "").toLowerCase();
+        return target && (lang === target || code === target);
+      }) ||
+      availableSubtitles.find((s) => s?.isDefault) ||
+      availableSubtitles[0];
+    if (selected && (selected.url || selected.subtitleUrl)) {
+      setCurrentSubtitleTrack({
+        url: selected.subtitleUrl || selected.url,
+        label: selected.language || selected.languageCode || "Subtitle",
+        lang:
+          selected.languageCode ||
+          (selected.language
+            ? selected.language.slice(0, 2).toLowerCase()
+            : "en"),
+      });
+    } else {
+      setCurrentSubtitleTrack(null);
+    }
+  }, [availableSubtitles, selectedSubtitleLanguage, subtitleEnabled]);
+
   // Seek to startPosition when video loads
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !videoSrc) return;
-    
+
     const startPosition = location.state?.startPosition ?? 0;
     if (startPosition <= 0) return;
 
@@ -456,7 +511,8 @@ export default function Stream() {
         autoPlay: true,
       };
       const res = await startStreaming(payload);
-      const newQuality = res?.quality ?? res?.selectedQuality ?? payload.quality;
+      const newQuality =
+        res?.quality ?? res?.selectedQuality ?? payload.quality;
       setSelectedQuality(newQuality);
       if (res?.selectedSubtitleLanguage)
         setSelectedSubtitleLanguage(res.selectedSubtitleLanguage);
@@ -471,35 +527,35 @@ export default function Stream() {
         if (v) {
           // Save current playback position
           const savedTime = currentTimeRef.current || currentTime || 0;
-          
+
           // Function to restore playback position
           const restorePosition = () => {
             if (v && savedTime > 0 && v.readyState >= 2) {
               v.currentTime = savedTime;
             }
           };
-          
+
           // Set up event listeners to restore position after video loads
           const handleLoadedMetadata = () => {
             restorePosition();
             v.removeEventListener("loadedmetadata", handleLoadedMetadata);
           };
-          
+
           const handleCanPlay = () => {
             restorePosition();
             v.removeEventListener("canplay", handleCanPlay);
           };
-          
+
           v.addEventListener("loadedmetadata", handleLoadedMetadata);
           v.addEventListener("canplay", handleCanPlay);
-          
+
           v.load();
-          
+
           // Also try to set currentTime after a short delay (fallback)
           const timeoutId = setTimeout(() => {
             restorePosition();
           }, 200);
-          
+
           if (wasPlaying) {
             // Wait for video to be ready before playing
             const handleCanPlayThrough = () => {
@@ -527,7 +583,7 @@ export default function Stream() {
   // Periodically persist playback position while playing
   useEffect(() => {
     if (!movieId || !isPlaying) return;
-    
+
     // Skip if too many consecutive failures (more than 3)
     if (apiFailureCountRef.current > 3) {
       // Reset after 2 minutes
@@ -540,9 +596,12 @@ export default function Stream() {
     const interval = setInterval(() => {
       const currentPos = Math.floor(currentTimeRef.current || currentTime || 0);
       const dur = durationRef.current || duration || 0;
-      
+
       // Skip if position hasn't changed significantly (less than 5 seconds) or no duration
-      if (Math.abs(currentPos - lastSuccessfulUpdateRef.current) < 5 || dur <= 0) {
+      if (
+        Math.abs(currentPos - lastSuccessfulUpdateRef.current) < 5 ||
+        dur <= 0
+      ) {
         return;
       }
 
@@ -559,7 +618,7 @@ export default function Stream() {
           // Don't throw or show error to user, just log
         });
     }, 30000); // Increased to 30 seconds to reduce API calls
-    
+
     return () => clearInterval(interval);
   }, [movieId, isPlaying]);
 
@@ -568,19 +627,13 @@ export default function Stream() {
     const vAtMount = videoRef.current;
     return () => {
       if (!movieId) return;
-      
+
       // Use refs to get latest values
       const pos = Math.floor(
-        vAtMount?.currentTime || 
-        currentTimeRef.current || 
-        currentTime || 
-        0
+        vAtMount?.currentTime || currentTimeRef.current || currentTime || 0
       );
       const dur = Math.floor(
-        vAtMount?.duration || 
-        durationRef.current || 
-        duration || 
-        0
+        vAtMount?.duration || durationRef.current || duration || 0
       );
       // Save playback progress when component unmounts
       // Use updateStreamingProgress to save the current position
@@ -785,7 +838,12 @@ export default function Stream() {
   const [userRating, setUserRating] = useState(null);
   const [userStars, setUserStars] = useState(3); // Mặc định 3 sao
   const [userComment, setUserComment] = useState("");
-  const [movieRatings, setMovieRatings] = useState({ items: [], page: 0, size: 10, totalPages: 1 });
+  const [movieRatings, setMovieRatings] = useState({
+    items: [],
+    page: 0,
+    size: 10,
+    totalPages: 1,
+  });
   const [ratingBusy, setRatingBusy] = useState(false);
   // Inline edit controls removed; use a dedicated "Đánh giá của bạn" section instead
 
@@ -795,13 +853,22 @@ export default function Stream() {
     (async () => {
       try {
         const list = await listPublicUsers();
-        const arr = Array.isArray(list) ? list : Array.isArray(list?.items) ? list.items : [];
+        const arr = Array.isArray(list)
+          ? list
+          : Array.isArray(list?.items)
+          ? list.items
+          : [];
         const map = {};
         for (const u of arr) {
           const id = u?.id;
           if (id == null) continue;
           map[id] = {
-            name: u.fullName || u.username || u.displayName || u.email || `Người dùng ${id}`,
+            name:
+              u.fullName ||
+              u.username ||
+              u.displayName ||
+              u.email ||
+              `Người dùng ${id}`,
             avatar: u.avatarUrl || u.avatar || u.imageUrl || "",
           };
         }
@@ -839,14 +906,25 @@ export default function Stream() {
     if (Number(r.userId ?? r.userID ?? r.user_id) === Number(user?.id)) {
       return user?.avatar || user?.avatarUrl || user?.imageUrl || "";
     }
-    return r.userAvatar || r.avatar || r.avatarUrl || r.imageUrl || (r.user && (r.user.avatar || r.user.avatarUrl || r.user.imageUrl)) || "";
+    return (
+      r.userAvatar ||
+      r.avatar ||
+      r.avatarUrl ||
+      r.imageUrl ||
+      (r.user && (r.user.avatar || r.user.avatarUrl || r.user.imageUrl)) ||
+      ""
+    );
   };
 
   useEffect(() => {
     (async () => {
       try {
         if (!movieId) return;
-        const list = await getMovieRatings(movieId, { page: 0, size: 10 }, token);
+        const list = await getMovieRatings(
+          movieId,
+          { page: 0, size: 10 },
+          token
+        );
         const items = Array.isArray(list?.items)
           ? list.items
           : Array.isArray(list?.content)
@@ -901,12 +979,25 @@ export default function Stream() {
       // Nếu không chọn sao, mặc định là 3 sao
       const stars = userStars || 3;
       let saved;
-      if (userRating?.id) saved = await updateRating(userRating.id, { stars: stars, comment: userComment }, token);
-      else saved = await createRating({ movieId, stars: stars, comment: userComment }, token);
+      if (userRating?.id)
+        saved = await updateRating(
+          userRating.id,
+          { stars: stars, comment: userComment },
+          token
+        );
+      else
+        saved = await createRating(
+          { movieId, stars: stars, comment: userComment },
+          token
+        );
       setUserRating(saved);
       // refresh list
       try {
-        const list = await getMovieRatings(movieId, { page: 0, size: 10 }, token);
+        const list = await getMovieRatings(
+          movieId,
+          { page: 0, size: 10 },
+          token
+        );
         const items = Array.isArray(list?.items)
           ? list.items
           : Array.isArray(list?.content)
@@ -914,7 +1005,12 @@ export default function Stream() {
           : Array.isArray(list)
           ? list
           : [];
-        setMovieRatings({ items, page: list?.page ?? 0, size: list?.size ?? 10, totalPages: list?.totalPages ?? 1 });
+        setMovieRatings({
+          items,
+          page: list?.page ?? 0,
+          size: list?.size ?? 10,
+          totalPages: list?.totalPages ?? 1,
+        });
       } catch (_) {}
     } catch (_) {
       // ignore UI-level error here
@@ -932,8 +1028,17 @@ export default function Stream() {
       setUserStars(3); // Mặc định 3 sao
       setUserComment("");
       const list = await getMovieRatings(movieId, { page: 0, size: 10 }, token);
-      const items = Array.isArray(list?.items) ? list.items : Array.isArray(list) ? list : [];
-      setMovieRatings({ items, page: list?.page ?? 0, size: list?.size ?? 10, totalPages: list?.totalPages ?? 1 });
+      const items = Array.isArray(list?.items)
+        ? list.items
+        : Array.isArray(list)
+        ? list
+        : [];
+      setMovieRatings({
+        items,
+        page: list?.page ?? 0,
+        size: list?.size ?? 10,
+        totalPages: list?.totalPages ?? 1,
+      });
     } catch (_) {
     } finally {
       setRatingBusy(false);
@@ -1019,17 +1124,37 @@ export default function Stream() {
                   showUi();
                   if (movieId) {
                     const v = videoRef.current;
-                    const pos = Math.floor(v?.currentTime || currentTimeRef.current || 0);
-                    
+                    const pos = Math.floor(
+                      v?.currentTime || currentTimeRef.current || 0
+                    );
+
                     // Use updateStreamingProgress to save playback position
                     if (pos > 0 && durationRef.current > 0) {
-                      updateStreamingProgress(movieId, pos, durationRef.current).catch((err) => {
-                        console.warn("Failed to save playback position on pause:", err);
+                      updateStreamingProgress(
+                        movieId,
+                        pos,
+                        durationRef.current
+                      ).catch((err) => {
+                        console.warn(
+                          "Failed to save playback position on pause:",
+                          err
+                        );
                       });
                     }
                   }
                 }}
-              />
+              >
+                {subtitleEnabled && currentSubtitleTrack?.url && (
+                  <track
+                    key={`${currentSubtitleTrack.url}-${currentSubtitleTrack.lang}`}
+                    kind="subtitles"
+                    src={currentSubtitleTrack.url}
+                    srcLang={currentSubtitleTrack.lang}
+                    label={currentSubtitleTrack.label}
+                    default
+                  />
+                )}
+              </video>
             </Box>
 
             {/* Progress */}
@@ -1433,7 +1558,9 @@ export default function Stream() {
           {(movie?.videoDuration || movie?.duration) && (
             <Chip
               size="small"
-              label={`${Math.round((movie?.videoDuration ?? movie?.duration) / 60)} phút`}
+              label={`${Math.round(
+                (movie?.videoDuration ?? movie?.duration) / 60
+              )} phút`}
               sx={{ bgcolor: "rgba(255,255,255,0.08)", color: "#fff" }}
             />
           )}
@@ -1483,14 +1610,20 @@ export default function Stream() {
                 await addFavorite(movie.id);
                 window.dispatchEvent(
                   new CustomEvent("app:toast", {
-                    detail: { message: "Đã thêm vào Yêu thích", severity: "success" },
+                    detail: {
+                      message: "Đã thêm vào Yêu thích",
+                      severity: "success",
+                    },
                   })
                 );
               } catch (err) {
                 console.error("Error adding to favorites:", err);
                 window.dispatchEvent(
                   new CustomEvent("app:toast", {
-                    detail: { message: "Không thể thêm vào Yêu thích", severity: "error" },
+                    detail: {
+                      message: "Không thể thêm vào Yêu thích",
+                      severity: "error",
+                    },
                   })
                 );
               }
@@ -1766,52 +1899,111 @@ export default function Stream() {
                 <Stack spacing={2} sx={{ mb: 3 }}>
                   {[...movieRatings.items]
                     .sort((a, b) => {
-                      const au = Number(a.userId ?? a.userID ?? a.user_id) === Number(user?.id);
-                      const bu = Number(b.userId ?? b.userID ?? b.user_id) === Number(user?.id);
+                      const au =
+                        Number(a.userId ?? a.userID ?? a.user_id) ===
+                        Number(user?.id);
+                      const bu =
+                        Number(b.userId ?? b.userID ?? b.user_id) ===
+                        Number(user?.id);
                       if (au && !bu) return -1;
                       if (!au && bu) return 1;
-                      const at = new Date(a.createdAt || a.created_at || 0).getTime();
-                      const bt = new Date(b.createdAt || b.created_at || 0).getTime();
+                      const at = new Date(
+                        a.createdAt || a.created_at || 0
+                      ).getTime();
+                      const bt = new Date(
+                        b.createdAt || b.created_at || 0
+                      ).getTime();
                       return bt - at;
                     })
                     .map((r, idx) => {
-                    const name = getReviewerName(r);
-                    const ava = getReviewerAvatar(r);
-                    const fallback = `https://i.pravatar.cc/150?img=${(idx % 70) + 1}`;
-                    const isOwn = Number(r.userId ?? r.userID ?? r.user_id) === Number(user?.id);
-                    return (
-                      <Stack key={r.id} direction="row" spacing={2}>
-                        <Avatar src={ava || fallback} sx={{ width: 36, height: 36 }}>
-                          {(name || "U").charAt(0)}
-                        </Avatar>
-                        <Box sx={{ flex: 1 }}>
-                          <Stack direction="row" alignItems="center" spacing={1}>
-                            <Typography variant="subtitle2" fontWeight={700}>{name}</Typography>
-                            {isOwn && (
-                              <Typography variant="caption" sx={{ color: "#FFD700", fontWeight: 800, ml: 1 }}>
-                                • Của bạn
+                      const name = getReviewerName(r);
+                      const ava = getReviewerAvatar(r);
+                      const fallback = `https://i.pravatar.cc/150?img=${
+                        (idx % 70) + 1
+                      }`;
+                      const isOwn =
+                        Number(r.userId ?? r.userID ?? r.user_id) ===
+                        Number(user?.id);
+                      return (
+                        <Stack key={r.id} direction="row" spacing={2}>
+                          <Avatar
+                            src={ava || fallback}
+                            sx={{ width: 36, height: 36 }}
+                          >
+                            {(name || "U").charAt(0)}
+                          </Avatar>
+                          <Box sx={{ flex: 1 }}>
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              spacing={1}
+                            >
+                              <Typography variant="subtitle2" fontWeight={700}>
+                                {name}
+                              </Typography>
+                              {isOwn && (
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: "#FFD700",
+                                    fontWeight: 800,
+                                    ml: 1,
+                                  }}
+                                >
+                                  • Của bạn
+                                </Typography>
+                              )}
+                              <Typography
+                                variant="caption"
+                                color="rgba(255,255,255,0.6)"
+                              >
+                                {new Date(
+                                  r.createdAt || r.created_at || Date.now()
+                                ).toLocaleString()}
+                              </Typography>
+                            </Stack>
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              spacing={1}
+                              sx={{ mt: 0.5 }}
+                            >
+                              <Rating
+                                value={Number(r.stars) || 0}
+                                readOnly
+                                size="small"
+                              />
+                              <Typography
+                                variant="caption"
+                                color="rgba(255,255,255,0.7)"
+                              >
+                                {r.stars}/5
+                              </Typography>
+                            </Stack>
+                            {r.comment && (
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(255,255,255,0.85)",
+                                  mt: 0.5,
+                                }}
+                              >
+                                {r.comment}
                               </Typography>
                             )}
-                            <Typography variant="caption" color="rgba(255,255,255,0.6)">
-                              {new Date(r.createdAt || r.created_at || Date.now()).toLocaleString()}
-                            </Typography>
-                          </Stack>
-                          <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
-                            <Rating value={Number(r.stars) || 0} readOnly size="small" />
-                            <Typography variant="caption" color="rgba(255,255,255,0.7)">{r.stars}/5</Typography>
-                          </Stack>
-                          {r.comment && (
-                            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.85)", mt: 0.5 }}>{r.comment}</Typography>
-                          )}
-                        </Box>
-                      </Stack>
-                    );
-                  })}
+                          </Box>
+                        </Stack>
+                      );
+                    })}
                 </Stack>
               }
 
               {/* Personal review card */}
-              <Typography variant="subtitle1" fontWeight={800} sx={{ mt: 3, mb: 1 }}>
+              <Typography
+                variant="subtitle1"
+                fontWeight={800}
+                sx={{ mt: 3, mb: 1 }}
+              >
                 Đánh giá của bạn
               </Typography>
               {
@@ -1828,14 +2020,42 @@ export default function Stream() {
                     backdropFilter: "blur(8px)",
                   }}
                 >
-                  <Avatar alt="Bạn" src={user?.avatar || user?.avatarUrl || user?.imageUrl || ""} sx={{ width: 36, height: 36 }} />
+                  <Avatar
+                    alt="Bạn"
+                    src={
+                      user?.avatar || user?.avatarUrl || user?.imageUrl || ""
+                    }
+                    sx={{ width: 36, height: 36 }}
+                  />
                   <Box sx={{ flex: 1 }}>
-                    <Typography variant="subtitle2" fontWeight={700} sx={{ color: "rgba(255,255,255,0.9)" }}>
-                      {user?.fullName || user?.username || user?.displayName || user?.name || user?.email || "Bạn"}
+                    <Typography
+                      variant="subtitle2"
+                      fontWeight={700}
+                      sx={{ color: "rgba(255,255,255,0.9)" }}
+                    >
+                      {user?.fullName ||
+                        user?.username ||
+                        user?.displayName ||
+                        user?.name ||
+                        user?.email ||
+                        "Bạn"}
                     </Typography>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <Rating value={Number(userStars) || 3} precision={1} max={5} onChange={(_, v) => setUserStars(v || 3)} />
-                      <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)" }}>
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
+                      sx={{ mb: 1 }}
+                    >
+                      <Rating
+                        value={Number(userStars) || 3}
+                        precision={1}
+                        max={5}
+                        onChange={(_, v) => setUserStars(v || 3)}
+                      />
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "rgba(255,255,255,0.7)" }}
+                      >
                         {userStars ? `${userStars}/5` : "3/5"}
                       </Typography>
                     </Stack>
@@ -1852,19 +2072,47 @@ export default function Stream() {
                         "& .MuiOutlinedInput-root": {
                           color: "#fff",
                           bgcolor: "#111",
-                          "& fieldset": { borderColor: "rgba(255,255,255,0.2)" },
-                          "&:hover fieldset": { borderColor: "rgba(255,255,255,0.35)" },
+                          "& fieldset": {
+                            borderColor: "rgba(255,255,255,0.2)",
+                          },
+                          "&:hover fieldset": {
+                            borderColor: "rgba(255,255,255,0.35)",
+                          },
                           "&.Mui-focused fieldset": { borderColor: "#FFD700" },
                         },
                       }}
                     />
-                    <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 1 }}>
+                    <Stack
+                      direction="row"
+                      justifyContent="flex-end"
+                      spacing={1}
+                      sx={{ mt: 1 }}
+                    >
                       {userRating?.id && (
-                        <Button variant="outlined" onClick={removeRating} disabled={ratingBusy} sx={{ color: "#fff", borderColor: "rgba(255,255,255,0.2)" }}>
+                        <Button
+                          variant="outlined"
+                          onClick={removeRating}
+                          disabled={ratingBusy}
+                          sx={{
+                            color: "#fff",
+                            borderColor: "rgba(255,255,255,0.2)",
+                          }}
+                        >
                           Xoá
                         </Button>
                       )}
-                      <Button onClick={submitRating} disabled={ratingBusy} sx={{ color: "#000", bgcolor: "#FFD700", fontWeight: 700, px: 2, borderRadius: 999, ":hover": { bgcolor: "#FFC107" } }}>
+                      <Button
+                        onClick={submitRating}
+                        disabled={ratingBusy}
+                        sx={{
+                          color: "#000",
+                          bgcolor: "#FFD700",
+                          fontWeight: 700,
+                          px: 2,
+                          borderRadius: 999,
+                          ":hover": { bgcolor: "#FFC107" },
+                        }}
+                      >
                         {userRating?.id ? "Cập nhật" : "Gửi"}
                       </Button>
                     </Stack>

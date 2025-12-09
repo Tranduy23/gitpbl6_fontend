@@ -2111,6 +2111,7 @@ function MovieCreationForm({
     thumbnail: null,
     video: null,
     trailer: null,
+    subtitle: null,
   });
 
   const [loading, setLoading] = useState(false);
@@ -2536,6 +2537,21 @@ function MovieCreationForm({
               <label htmlFor="trailer-upload">
                 <Button variant="outlined" component="span" fullWidth>
                   {files.trailer ? files.trailer.name : "Upload Trailer"}
+                </Button>
+              </label>
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <input
+                accept=".srt,.vtt,.ass,.sub"
+                style={{ display: "none" }}
+                id="subtitle-upload"
+                type="file"
+                onChange={handleFileChange("subtitle")}
+              />
+              <label htmlFor="subtitle-upload">
+                <Button variant="outlined" component="span" fullWidth>
+                  {files.subtitle ? files.subtitle.name : "Upload Subtitle"}
                 </Button>
               </label>
             </Grid>

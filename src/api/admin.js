@@ -230,6 +230,7 @@ export function createMovie(movieData) {
   if (movieData.poster) formData.append("poster", movieData.poster);
   if (movieData.thumbnail) formData.append("thumbnail", movieData.thumbnail);
   if (movieData.video) formData.append("video", movieData.video);
+  if (movieData.subtitle) formData.append("subtitle", movieData.subtitle);
 
   return formDataFetch("/movies/create-form", formData, { method: "POST" });
 }
@@ -297,6 +298,7 @@ export function updateMovieWithFormData(movieId, movieData) {
   if (movieData.thumbnail) formData.append("thumbnail", movieData.thumbnail);
   if (movieData.video) formData.append("video", movieData.video);
   if (movieData.trailer) formData.append("trailer", movieData.trailer);
+  if (movieData.subtitle) formData.append("subtitle", movieData.subtitle);
 
   return formDataFetch(
     `/admin/movies/${encodeURIComponent(movieId)}`,
