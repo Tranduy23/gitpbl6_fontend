@@ -117,12 +117,15 @@ export function updateStreamingProgress(movieId, currentTime, totalTime) {
     currentTime: String(Math.round(currentTime || 0)),
     totalTime: String(Math.round(totalTime || 0)),
   });
-  return jsonFetch(`/streaming/progress/${encodeURIComponent(movieId)}?${params.toString()}`, {
-    method: "PUT",
-    headers: {
-      ...getAuthHeader(),
-    },
-  });
+  return jsonFetch(
+    `/streaming/progress/${encodeURIComponent(movieId)}?${params.toString()}`,
+    {
+      method: "PUT",
+      headers: {
+        ...getAuthHeader(),
+      },
+    }
+  );
 }
 
 // GET /api/streaming/movie/{id}/subtitles
@@ -242,7 +245,9 @@ export function getPopularSearches(limit = 10) {
 // GET /api/movies/featured?limit=
 export function getFeaturedMovies(limit = 10) {
   const params = withApiKey({ limit: String(limit) });
-  return statusFetch(`/movies/featured?${params.toString()}`, { method: "GET" });
+  return statusFetch(`/movies/featured?${params.toString()}`, {
+    method: "GET",
+  });
 }
 
 // GET /api/movies/now-showing?limit=
