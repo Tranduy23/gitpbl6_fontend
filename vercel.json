@@ -15,7 +15,10 @@
     {
       "source": "/cdn/:path*",
       "destination": "https://cdn.phimnhalam.website/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
-
