@@ -47,19 +47,35 @@ export function listActors({ q = "", page = 0, size = 20 } = {}) {
   return jsonFetch(`/actors?${params.toString()}`, { method: "GET" });
 }
 
+// Helper function to convert file to base64
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(",")[1]; // Remove data:image/...;base64, prefix
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export async function recognizeActorsByImage(
   file,
   { topK = 12, minScore = 0.3, maxResults = 0 } = {}
 ) {
   if (!file) throw new Error("image file is required");
-  const form = new FormData();
-  form.append("image", file);
-  form.append("topK", String(topK));
-  form.append("minScore", String(minScore));
-  form.append("maxResults", String(maxResults));
-  form.append("debug", "0");
 
-  const url = buildAiUrl(`/actors/recognize`);
+  // Convert file to base64
+  const base64Image = await fileToBase64(file);
+
+  const payload = {
+    base64image: base64Image,
+  };
+
+  // Use /get endpoint instead of /actors/recognize
+  // Note: /get endpoint doesn't support topK, minScore, maxResults parameters
+  const url = buildAiUrl(`/get`);
   // eslint-disable-next-line no-console
   console.log("[AI] Sending request to:", url);
   // eslint-disable-next-line no-console
@@ -68,8 +84,10 @@ export async function recognizeActorsByImage(
     import.meta?.env?.VITE_AI_BASE_URL || "not set (using /ai)"
   );
   // eslint-disable-next-line no-console
+  console.log("[AI] Base64 image length:", base64Image.length, "characters");
+  // eslint-disable-next-line no-console
   console.log(
-    "[AI] Request params: topK=",
+    "[AI] Request params (not used by /get endpoint): topK=",
     topK,
     "minScore=",
     minScore,
@@ -83,7 +101,10 @@ export async function recognizeActorsByImage(
   try {
     const response = await fetch(url, {
       method: "POST",
-      body: form,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
       signal: controller.signal,
     });
 
@@ -92,10 +113,45 @@ export async function recognizeActorsByImage(
     // eslint-disable-next-line no-console
     console.log("[AI] Response status:", response.status, response.statusText);
 
-    const payload = await handleResponse(response);
+    const payload_response = await handleResponse(response);
     // eslint-disable-next-line no-console
-    console.log("[AI] recognizeActorsByImage response:", payload);
-    return payload;
+    console.log("[AI] recognizeActorsByImage response:", payload_response);
+
+    // Transform response from /get format to expected format
+    // /get returns: { success: true, ten: "Actor Name", phan_tram: 92.86 }
+    // or: { success: false, error: "error message" }
+    // Expected format: { content: [{ id, name, score, ... }] }
+    if (payload_response.success === false) {
+      throw new Error(payload_response.error || "Nhận diện thất bại");
+    }
+
+    if (payload_response.success && payload_response.ten) {
+      const actorName = payload_response.ten;
+      const confidence = (payload_response.phan_tram || 0) / 100;
+      // eslint-disable-next-line no-console
+      console.log(
+        "[AI] Recognized actor:",
+        actorName,
+        "Confidence:",
+        (payload_response.phan_tram || 0).toFixed(2) + "%"
+      );
+      return {
+        content: [
+          {
+            name: actorName,
+            score: confidence, // Convert percentage to 0-1
+          },
+        ],
+      };
+    }
+
+    // If response already has content array, return as is
+    if (payload_response.content) {
+      return payload_response;
+    }
+
+    // Fallback: return empty content
+    return { content: [] };
   } catch (error) {
     clearTimeout(timeoutId);
     if (error.name === "AbortError") {

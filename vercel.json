@@ -17,6 +17,10 @@
       "destination": "https://cdn.phimnhalam.website/:path*"
     },
     {
+      "source": "/ai/get",
+      "destination": "https://api-facereg.shuneo.com/get"
+    },
+    {
       "source": "/ai/:path*",
       "destination": "https://api-facereg.shuneo.com/ai/:path*"
     },
