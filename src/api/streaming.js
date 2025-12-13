@@ -23,6 +23,17 @@ async function handleResponse(response) {
   const payload = isJson
     ? await response.json().catch(() => ({}))
     : await response.text();
+  
+  // Check if response is an error object (even with 200 OK status)
+  if (payload?.error) {
+    const error = new Error(
+      payload?.message || payload?.error || response.statusText || "Request failed"
+    );
+    error.status = response.status || 500;
+    error.details = payload;
+    throw error;
+  }
+  
   if (!response.ok) {
     const error = new Error(
       payload?.message || response.statusText || "Request failed"

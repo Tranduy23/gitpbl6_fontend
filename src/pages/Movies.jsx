@@ -98,7 +98,21 @@ const Movies = () => {
   }, []);
 
   // Load movies from now-showing API
+  // Only load full movies if there's no genre/director filter in URL (to avoid loading all then filtering)
   useEffect(() => {
+    // Check URL for genre/director filter first
+    const params = new URLSearchParams(location.search);
+    const hasGenreFilter = params.get("genre");
+    const hasDirectorFilter = params.get("director");
+
+    // If there's a genre or director filter in URL, skip loading full movies
+    // Server search will handle it instead
+    if (hasGenreFilter || hasDirectorFilter) {
+      setLoading(false);
+      setMovies([]); // Keep empty, server search will populate filteredMovies
+      return;
+    }
+
     const loadNowShowingMovies = async () => {
       try {
         setLoading(true);
@@ -119,7 +133,9 @@ const Movies = () => {
           totalRatings: movie.totalRatings ?? 0,
           year: movie.year != null ? String(movie.year) : undefined,
           duration: movie.videoDuration || undefined,
-          genres: movie.categories || movie.genres || [],
+          genres: (movie.categories || movie.genres || [])
+            .map((c) => String(c).trim())
+            .filter(Boolean),
           synopsis: movie.synopsis || "",
           thumb: movie.posterUrl || movie.thumbnailUrl || undefined,
           posterUrl: movie.posterUrl || undefined,
@@ -162,7 +178,7 @@ const Movies = () => {
     };
 
     loadNowShowingMovies();
-  }, []);
+  }, [location.search]);
 
   // Enable server-side search when genre or director filters are active
   const shouldServerSearch = useMemo(
@@ -206,7 +222,8 @@ const Movies = () => {
   // Local fallback filtering when no server search (empty filters)
   useEffect(() => {
     // Only set filteredMovies from movies if not using server search
-    if (!shouldServerSearch) {
+    // AND if we actually have movies loaded (not empty array from skipped load)
+    if (!shouldServerSearch && movies.length > 0) {
       setFilteredMovies(movies);
     }
   }, [movies, shouldServerSearch]);
@@ -236,11 +253,13 @@ const Movies = () => {
 
     if (filters.genre && !shouldServerSearch) {
       // Only apply genre filter locally if not using server search
+      // Use exact match (case-insensitive) for categories
+      const filterGenreLower = String(filters.genre).toLowerCase().trim();
       current = current.filter(
         (movie) =>
           Array.isArray(movie.genres) &&
-          movie.genres.some((genre) =>
-            String(genre).toLowerCase().includes(filters.genre.toLowerCase())
+          movie.genres.some(
+            (genre) => String(genre).toLowerCase().trim() === filterGenreLower
           )
       );
     }
@@ -301,7 +320,9 @@ const Movies = () => {
       totalRatings: movie.totalRatings ?? 0,
       year: movie.year != null ? String(movie.year) : undefined,
       duration: movie.videoDuration || undefined,
-      genres: movie.categories || movie.genres || [],
+      genres: (movie.categories || movie.genres || [])
+        .map((c) => String(c).trim())
+        .filter(Boolean),
       synopsis: movie.synopsis || "",
       thumb: movie.posterUrl || undefined,
       posterUrl: movie.posterUrl || undefined,
@@ -435,7 +456,7 @@ const Movies = () => {
         };
         data = await searchMovies(body);
       }
-      const items = transformSearchResults(data);
+      let items = transformSearchResults(data);
       console.log(
         "[Movies] Transformed items count:",
         items.length,
@@ -444,11 +465,35 @@ const Movies = () => {
       );
       console.log("[Movies] Sample items:", items.slice(0, 2));
 
+      // Apply additional local filters (country, year, actor) to server search results
+      // This allows combining genre/director filter with country/year filters
+      if (filters.country) {
+        items = items.filter(
+          (movie) =>
+            movie.country &&
+            String(movie.country).toLowerCase() ===
+              filters.country.toLowerCase()
+        );
+      }
+
+      if (filters.year) {
+        items = items.filter((movie) => movie.year === filters.year);
+      }
+
+      if (filters.actor) {
+        const needle = filters.actor.toLowerCase();
+        items = items.filter(
+          (movie) =>
+            Array.isArray(movie.actors) &&
+            movie.actors.some((n) => String(n).toLowerCase().includes(needle))
+        );
+      }
+
       const totalPages =
         data?.totalPages ?? (items.length < size ? nextPage + 1 : nextPage + 2);
       setHasMore(nextPage + 1 < totalPages);
 
-      // Set filteredMovies directly - don't let local filtering override
+      // Set filteredMovies with additional filters applied
       setFilteredMovies((prev) => {
         const newItems = append ? [...prev, ...items] : items;
         console.log(
@@ -456,7 +501,7 @@ const Movies = () => {
           newItems.length,
           "items (append:",
           append,
-          ")"
+          ", with additional filters applied)"
         );
         return newItems;
       });
@@ -473,6 +518,11 @@ const Movies = () => {
 
   // Trigger server search when keyword changes
   useEffect(() => {
+    // Don't trigger server search while initial loading (unless we skipped loading due to URL filter)
+    if (loading && movies.length === 0 && !shouldServerSearch) {
+      return;
+    }
+
     console.log(
       "[Movies] shouldServerSearch:",
       shouldServerSearch,
@@ -481,6 +531,7 @@ const Movies = () => {
     );
     if (shouldServerSearch) {
       // Debounce for director and actor filters to avoid too many API calls while typing
+      // But for genre filter, trigger immediately (especially when coming from URL)
       const isDirectorOrActor = Boolean(filters.director || filters.actor);
       const timeoutId = setTimeout(
         () => {
@@ -488,8 +539,11 @@ const Movies = () => {
           setFilteredMovies([]);
           setPage(0);
           setSearchMode(null);
+          setIsSearching(true); // Show loading state
           console.log(
-            "[Movies] Triggering fetchAdvanced for server search, director:",
+            "[Movies] Triggering fetchAdvanced for server search, genre:",
+            filters.genre,
+            "director:",
             filters.director,
             "actor:",
             filters.actor
@@ -505,18 +559,45 @@ const Movies = () => {
       setHasMore(true);
       setSearchMode(null);
       // Reset to show all movies when no server search filters
-      if (filters.genre === "" && filters.director === "") {
+      if (
+        filters.genre === "" &&
+        filters.director === "" &&
+        movies.length > 0
+      ) {
         setFilteredMovies(movies);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    loading,
     shouldServerSearch,
     filters.search,
     filters.actor,
     filters.director,
     filters.genre,
+    movies.length,
   ]);
+
+  // Re-apply local filters (country, year) when they change and server search is active
+  // This allows combining genre/director filter with country/year filters
+  // When country/year changes, re-fetch from server to get fresh results with new filters
+  useEffect(() => {
+    if (shouldServerSearch && (filters.genre || filters.director)) {
+      // When country or year changes while server search is active, re-fetch to apply new filters
+      // This ensures we get the latest results with the correct filters applied
+      const timeoutId = setTimeout(() => {
+        if (filters.genre || filters.director) {
+          // Only re-fetch if we have a server search filter active
+          setPage(0);
+          setSearchMode(null);
+          fetchAdvanced(0, false);
+        }
+      }, 300); // Small debounce to avoid too many calls when user is changing filters
+
+      return () => clearTimeout(timeoutId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.country, filters.year]);
 
   const handleMovieClick = (movieId) => {
     navigate(`/movie/${movieId}`);
