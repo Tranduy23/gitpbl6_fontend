@@ -100,8 +100,8 @@ const DEFAULT_STREAM_CAST = [
   { name: "Yoon Seo-ah", avatar: "https://i.pravatar.cc/150?img=45" },
 ];
 
-// Dev-only helper: proxy CDN subtitle URLs through Vite dev server to avoid
-// mixed-origin/CORS blocks when running on http://localhost:5173.
+// Helper: proxy CDN subtitle URLs through dev server (Vite) or production proxy (Vercel)
+// to avoid mixed-origin/CORS blocks.
 const SUBTITLE_CDN_HOST = "cdn.phimnhalam.website";
 const SUBTITLE_CDN_PATH_PREFIX = "/subtitles";
 function resolveSubtitleUrl(url) {
@@ -117,12 +117,19 @@ function resolveSubtitleUrl(url) {
       parsed.hostname === SUBTITLE_CDN_HOST ||
       parsed.hostname === `www.${SUBTITLE_CDN_HOST}`;
 
-    if (isDev && isCdnHost) {
-      // Strip the CDN host so the request goes through the Vite proxy
-      const path = parsed.pathname.startsWith(SUBTITLE_CDN_PATH_PREFIX)
-        ? parsed.pathname
-        : `${SUBTITLE_CDN_PATH_PREFIX}${parsed.pathname}`;
-      return `${path}${parsed.search || ""}`;
+    if (isCdnHost) {
+      if (isDev) {
+        // In dev: use Vite proxy via /subtitles path
+        const path = parsed.pathname.startsWith(SUBTITLE_CDN_PATH_PREFIX)
+          ? parsed.pathname
+          : `${SUBTITLE_CDN_PATH_PREFIX}${parsed.pathname}`;
+        return `${path}${parsed.search || ""}`;
+      } else {
+        // In production: use Vercel proxy via /cdn path (configured in vercel.json)
+        return `/cdn${parsed.pathname}${parsed.search || ""}${
+          parsed.hash || ""
+        }`;
+      }
     }
     return parsed.toString();
   } catch (_) {
