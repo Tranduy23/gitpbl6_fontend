@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Container,
@@ -31,6 +31,7 @@ import {
   searchMovies,
   searchByActor,
   searchByDirector,
+  searchByGenre,
   getNowShowingMovies,
 } from "../api/streaming";
 
@@ -57,6 +58,44 @@ const Movies = () => {
   const [searchMode, setSearchMode] = useState(null); // 'movie' | 'actor' | 'director'
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 24;
+  const [dbGenres, setDbGenres] = useState([]);
+
+  // Fetch genres from API (like Header does)
+  useEffect(() => {
+    let aborted = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/movies?page=0&size=500&sort=title,asc`, {
+          method: "GET",
+          headers: { Accept: "*/*", "Content-Type": "application/json" },
+        });
+        if (!res.ok) throw new Error("failed");
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data?.content || [];
+        const categories = new Set();
+        list.forEach((m) => {
+          (m?.categories || m?.genres || []).forEach((c) => {
+            if (c) categories.add(String(c).trim());
+          });
+        });
+        if (!aborted) {
+          const genresList = Array.from(categories)
+            .filter(Boolean)
+            .sort((a, b) => String(a).localeCompare(String(b), "vi"));
+          setDbGenres(genresList);
+          console.log("Genres loaded from API:", genresList);
+        }
+      } catch (err) {
+        console.error("Error loading genres from API:", err);
+        if (!aborted) {
+          setDbGenres([]);
+        }
+      }
+    })();
+    return () => {
+      aborted = true;
+    };
+  }, []);
 
   // Load movies from now-showing API
   useEffect(() => {
@@ -65,10 +104,10 @@ const Movies = () => {
         setLoading(true);
         setError(null);
         const response = await getNowShowingMovies(100); // Load more movies
-        const moviesData = Array.isArray(response) 
-          ? response 
+        const moviesData = Array.isArray(response)
+          ? response
           : response?.content || response?.movies || response?.data || [];
-        
+
         // Transform API response to match expected format
         const transformedMovies = moviesData.map((movie) => ({
           id: movie.id,
@@ -101,7 +140,15 @@ const Movies = () => {
           downloadEnabled: Boolean(movie.downloadEnabled),
           availableQualities: movie.availableQualities || [],
         }));
-        
+
+        // Debug: log genres data
+        const allGenres = transformedMovies
+          .flatMap((m) => m.genres || [])
+          .filter(Boolean);
+        console.log("Total movies loaded:", transformedMovies.length);
+        console.log("Genres found in movies:", allGenres);
+        console.log("Unique genres:", [...new Set(allGenres)]);
+
         setMovies(transformedMovies);
         setFilteredMovies(transformedMovies);
       } catch (err) {
@@ -117,6 +164,12 @@ const Movies = () => {
     loadNowShowingMovies();
   }, []);
 
+  // Enable server-side search when genre or director filters are active
+  const shouldServerSearch = useMemo(
+    () => Boolean(filters.genre || filters.director),
+    [filters.genre, filters.director]
+  );
+
   // Initialize from URL query
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -125,22 +178,49 @@ const Movies = () => {
     const c = params.get("country") || "";
     const a = params.get("actor") || "";
     const d = params.get("director") || "";
-    const next = { ...filters };
-    if (q) next.search = q;
-    if (g) next.genre = g;
-    if (c) next.country = c;
-    if (a) next.actor = a;
-    if (d) next.director = d;
-    setFilters(next);
+
+    // Always create new filter object to ensure state update
+    const next = {
+      search: q,
+      genre: g,
+      country: c,
+      actor: a,
+      director: d,
+      year: filters.year || "", // Preserve year if not in URL
+    };
+
+    // Only update if filters actually changed
+    const hasChanged =
+      filters.search !== next.search ||
+      filters.genre !== next.genre ||
+      filters.country !== next.country ||
+      filters.actor !== next.actor ||
+      filters.director !== next.director;
+
+    if (hasChanged) {
+      setFilters(next);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
   // Local fallback filtering when no server search (empty filters)
   useEffect(() => {
-    setFilteredMovies(movies);
-  }, [movies]);
+    // Only set filteredMovies from movies if not using server search
+    if (!shouldServerSearch) {
+      setFilteredMovies(movies);
+    }
+  }, [movies, shouldServerSearch]);
 
+  // Local filtering only when NOT using server search
   useEffect(() => {
+    // Skip local filtering if using server search (genre or director)
+    // But still apply other filters (country, year, search, actor) even when server search is active
+    if (shouldServerSearch && filters.genre) {
+      // If genre filter is active, server search will handle it
+      // But we still need to apply other local filters after server search results
+      return;
+    }
+
     let current = movies;
 
     if (filters.search) {
@@ -154,11 +234,14 @@ const Movies = () => {
       );
     }
 
-    if (filters.genre) {
-      current = current.filter((movie) =>
-        movie.genres.some((genre) =>
-          genre.toLowerCase().includes(filters.genre.toLowerCase())
-        )
+    if (filters.genre && !shouldServerSearch) {
+      // Only apply genre filter locally if not using server search
+      current = current.filter(
+        (movie) =>
+          Array.isArray(movie.genres) &&
+          movie.genres.some((genre) =>
+            String(genre).toLowerCase().includes(filters.genre.toLowerCase())
+          )
       );
     }
 
@@ -183,7 +266,8 @@ const Movies = () => {
       );
     }
 
-    if (filters.director) {
+    if (filters.director && !shouldServerSearch) {
+      // Only apply director filter locally if not using server search
       const needle = filters.director.toLowerCase();
       current = current.filter(
         (movie) =>
@@ -194,13 +278,12 @@ const Movies = () => {
 
     setFilteredMovies(current);
     setCurrentPage(1); // Reset to page 1 when filters change
-  }, [movies, filters]);
-
-  // Disable server-side search - only show now-showing movies
-  const shouldServerSearch = false;
+  }, [movies, filters, shouldServerSearch]);
 
   const transformSearchResults = (data) => {
-    const source = Array.isArray(data?.content)
+    const source = Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data?.content)
       ? data.content
       : Array.isArray(data?.movies)
       ? data.movies
@@ -248,7 +331,10 @@ const Movies = () => {
       let mode = searchMode;
 
       // Determine mode for this request
-      if (filters.actor) mode = "actor";
+      if (filters.genre) {
+        mode = "genre";
+        console.log("[Movies] Genre filter active:", filters.genre);
+      } else if (filters.actor) mode = "actor";
       else if (filters.director) mode = "director";
 
       if (!mode) {
@@ -285,11 +371,9 @@ const Movies = () => {
               }));
             }
           } else {
-            const dirRes = await searchByDirector(
-              filters.search,
-              nextPage,
-              size
-            ).catch(() => null);
+            const dirRes = await searchByDirector(filters.search, size).catch(
+              () => null
+            );
             data = dirRes || { content: [] };
             mode = "director";
             if (nextPage === 0) {
@@ -302,6 +386,21 @@ const Movies = () => {
             }
           }
         }
+      } else if (mode === "genre") {
+        console.log(
+          "[Movies] Calling searchByGenre with:",
+          filters.genre,
+          "limit:",
+          size
+        );
+        try {
+          data = await searchByGenre(filters.genre, size);
+          console.log("[Movies] searchByGenre response:", data);
+        } catch (err) {
+          console.error("[Movies] searchByGenre error:", err);
+          // Fallback to empty result
+          data = { data: [], content: [] };
+        }
       } else if (mode === "actor") {
         data = await searchByActor(
           filters.actor || filters.search,
@@ -309,11 +408,23 @@ const Movies = () => {
           size
         );
       } else if (mode === "director") {
-        data = await searchByDirector(
+        console.log(
+          "[Movies] Calling searchByDirector with:",
           filters.director || filters.search,
-          nextPage,
+          "limit:",
           size
         );
+        try {
+          data = await searchByDirector(
+            filters.director || filters.search,
+            size
+          );
+          console.log("[Movies] searchByDirector response:", data);
+        } catch (err) {
+          console.error("[Movies] searchByDirector error:", err);
+          // Fallback to empty result
+          data = { data: [], content: [] };
+        }
       } else {
         const body = {
           query: filters.search || undefined,
@@ -325,13 +436,34 @@ const Movies = () => {
         data = await searchMovies(body);
       }
       const items = transformSearchResults(data);
+      console.log(
+        "[Movies] Transformed items count:",
+        items.length,
+        "mode:",
+        mode
+      );
+      console.log("[Movies] Sample items:", items.slice(0, 2));
+
       const totalPages =
         data?.totalPages ?? (items.length < size ? nextPage + 1 : nextPage + 2);
       setHasMore(nextPage + 1 < totalPages);
-      setFilteredMovies((prev) => (append ? [...prev, ...items] : items));
+
+      // Set filteredMovies directly - don't let local filtering override
+      setFilteredMovies((prev) => {
+        const newItems = append ? [...prev, ...items] : items;
+        console.log(
+          "[Movies] Setting filteredMovies to:",
+          newItems.length,
+          "items (append:",
+          append,
+          ")"
+        );
+        return newItems;
+      });
       setPage(nextPage);
       setSearchMode(mode);
     } catch (e) {
+      console.error("[Movies] Error in fetchAdvanced:", e);
       // fallback: keep local filtered
       setHasMore(false);
     } finally {
@@ -341,15 +473,50 @@ const Movies = () => {
 
   // Trigger server search when keyword changes
   useEffect(() => {
+    console.log(
+      "[Movies] shouldServerSearch:",
+      shouldServerSearch,
+      "filters:",
+      filters
+    );
     if (shouldServerSearch) {
-      fetchAdvanced(0, false);
+      // Debounce for director and actor filters to avoid too many API calls while typing
+      const isDirectorOrActor = Boolean(filters.director || filters.actor);
+      const timeoutId = setTimeout(
+        () => {
+          // Reset state before fetching to show loading state
+          setFilteredMovies([]);
+          setPage(0);
+          setSearchMode(null);
+          console.log(
+            "[Movies] Triggering fetchAdvanced for server search, director:",
+            filters.director,
+            "actor:",
+            filters.actor
+          );
+          fetchAdvanced(0, false);
+        },
+        isDirectorOrActor ? 500 : 0
+      ); // 500ms debounce for director/actor, immediate for genre
+
+      return () => clearTimeout(timeoutId);
     } else {
       setPage(0);
       setHasMore(true);
       setSearchMode(null);
+      // Reset to show all movies when no server search filters
+      if (filters.genre === "" && filters.director === "") {
+        setFilteredMovies(movies);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.search, filters.actor, filters.director]);
+  }, [
+    shouldServerSearch,
+    filters.search,
+    filters.actor,
+    filters.director,
+    filters.genre,
+  ]);
 
   const handleMovieClick = (movieId) => {
     navigate(`/movie/${movieId}`);
@@ -381,7 +548,22 @@ const Movies = () => {
   };
 
   // Get unique genres, years, countries for filter options
-  const uniqueGenres = [...new Set(movies.flatMap((movie) => movie.genres))];
+  // Use dbGenres from API if available, otherwise fallback to genres from loaded movies
+  const genresFromMovies = [
+    ...new Set(
+      movies
+        .flatMap((movie) => {
+          // Use genres field which was already transformed from categories/genres
+          return Array.isArray(movie.genres) ? movie.genres : [];
+        })
+        .filter(Boolean)
+        .map((g) => String(g).trim())
+        .filter((g) => g.length > 0)
+    ),
+  ].sort((a, b) => String(a).localeCompare(String(b), "vi"));
+
+  // Prefer dbGenres from API (more complete), fallback to genres from loaded movies
+  const uniqueGenres = dbGenres.length > 0 ? dbGenres : genresFromMovies;
   const uniqueYears = [...new Set(movies.map((movie) => movie.year))].sort(
     (a, b) => b - a
   );
@@ -547,6 +729,37 @@ const Movies = () => {
                       handleFilterChange("genre", e.target.value)
                     }
                     label="Thể loại"
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          bgcolor: "rgba(20, 20, 30, 0.95)",
+                          backdropFilter: "blur(10px)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          "& .MuiMenuItem-root": {
+                            color: "rgba(255,255,255,0.9)",
+                            "&:hover": {
+                              bgcolor: "rgba(255,215,0,0.2)",
+                              color: "#FFD700",
+                            },
+                            "&.Mui-selected": {
+                              bgcolor: "rgba(255,215,0,0.3)",
+                              color: "#FFD700",
+                              "&:hover": {
+                                bgcolor: "rgba(255,215,0,0.4)",
+                              },
+                            },
+                          },
+                        },
+                      },
+                      anchorOrigin: {
+                        vertical: "bottom",
+                        horizontal: "left",
+                      },
+                      transformOrigin: {
+                        vertical: "top",
+                        horizontal: "left",
+                      },
+                    }}
                     sx={{
                       color: "#fff",
                       "& .MuiOutlinedInput-notchedOutline": {
@@ -566,7 +779,7 @@ const Movies = () => {
                     <MenuItem value="">
                       <em>Tất cả thể loại</em>
                     </MenuItem>
-                    {uniqueGenres.map((genre) => (
+                    {uniqueGenres.filter(Boolean).map((genre) => (
                       <MenuItem key={genre} value={genre}>
                         {genre}
                       </MenuItem>
@@ -682,6 +895,27 @@ const Movies = () => {
                   onChange={(e) =>
                     handleFilterChange("director", e.target.value)
                   }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      // Force trigger search immediately on Enter
+                      if (filters.director) {
+                        setFilteredMovies([]);
+                        setPage(0);
+                        setSearchMode(null);
+                        fetchAdvanced(0, false);
+                      }
+                    }
+                  }}
+                  onBlur={() => {
+                    // Trigger search when user leaves the field
+                    if (filters.director && shouldServerSearch) {
+                      setFilteredMovies([]);
+                      setPage(0);
+                      setSearchMode(null);
+                      fetchAdvanced(0, false);
+                    }
+                  }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       color: "#fff",

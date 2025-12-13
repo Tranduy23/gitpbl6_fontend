@@ -162,15 +162,14 @@ export function quickSearch(query, limit = 10) {
   return jsonFetch(`/search/quick?${params.toString()}`, { method: "GET" });
 }
 
-// GET /api/search/genre/{name}?page=&size=
-export function searchByGenre(name, page = 1, size = 24) {
+// GET /api/search/movies/genre/{name}?limit=
+export function searchByGenre(name, limit = 24) {
   if (!name) throw new Error("genre name is required");
   const params = new URLSearchParams({
-    page: String(page),
-    size: String(size),
+    limit: String(limit),
   });
   return jsonFetch(
-    `/search/genre/${encodeURIComponent(name)}?${params.toString()}`,
+    `/search/movies/genre/${encodeURIComponent(name)}?${params.toString()}`,
     {
       method: "GET",
     }
@@ -192,12 +191,11 @@ export function searchByActor(name, page = 1, size = 24) {
   );
 }
 
-// GET /api/search/director/{name}?page=&size=
-export function searchByDirector(name, page = 1, size = 24) {
+// GET /api/search/director/{name}?limit=
+export function searchByDirector(name, limit = 24) {
   if (!name) throw new Error("director name is required");
   const params = new URLSearchParams({
-    page: String(page),
-    size: String(size),
+    limit: String(limit),
   });
   return jsonFetch(
     `/search/director/${encodeURIComponent(name)}?${params.toString()}`,

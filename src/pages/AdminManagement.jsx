@@ -92,6 +92,7 @@ function DirectorsManagement() {
   const [editing, setEditing] = useState(null);
   const [viewing, setViewing] = useState(null);
   const [viewMode, setViewMode] = useState("grid");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     loadDirectors();
@@ -166,6 +167,18 @@ function DirectorsManagement() {
         </Box>
       </Box>
 
+      {/* Search */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          placeholder="Search directors by name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          size="small"
+          sx={{ minWidth: 300 }}
+          fullWidth
+        />
+      </Box>
+
       {showCreate || editing ? (
         <Card>
           <CardContent>
@@ -195,7 +208,11 @@ function DirectorsManagement() {
               d &&
               d.name &&
               String(d.name).trim().length > 0 &&
-              String(d.name).toLowerCase() !== "unknown director"
+              String(d.name).toLowerCase() !== "unknown director" &&
+              (searchTerm === "" ||
+                String(d.name)
+                  .toLowerCase()
+                  .includes(searchTerm.toLowerCase()))
           );
           if (items.length === 0) return null; // don't render anything when empty
           return viewMode === "grid" ? (
@@ -582,6 +599,7 @@ function CategoriesManagement() {
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState(null);
   const [viewMode, setViewMode] = useState("grid");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     loadCategories();
@@ -653,6 +671,18 @@ function CategoriesManagement() {
         </Box>
       </Box>
 
+      {/* Search */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          placeholder="Search categories by name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          size="small"
+          sx={{ minWidth: 300 }}
+          fullWidth
+        />
+      </Box>
+
       {showCreate || editing ? (
         <Card>
           <CardContent>
@@ -677,7 +707,18 @@ function CategoriesManagement() {
         <Alert severity="error">{error}</Alert>
       ) : viewMode === "grid" ? (
         <Grid container spacing={3}>
-          {(Array.isArray(categories) ? categories : []).map((c) => (
+          {(Array.isArray(categories) ? categories : [])
+            .filter(
+              (c) =>
+                searchTerm === "" ||
+                String(c.name || "")
+                  .toLowerCase()
+                  .includes(searchTerm.toLowerCase()) ||
+                String(c.displayName || "")
+                  .toLowerCase()
+                  .includes(searchTerm.toLowerCase())
+            )
+            .map((c) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={c.id || c.name}>
               <Card>
                 <CardContent>
@@ -756,7 +797,18 @@ function CategoriesManagement() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {(Array.isArray(categories) ? categories : []).map((c) => (
+              {(Array.isArray(categories) ? categories : [])
+                .filter(
+                  (c) =>
+                    searchTerm === "" ||
+                    String(c.name || "")
+                      .toLowerCase()
+                      .includes(searchTerm.toLowerCase()) ||
+                    String(c.displayName || "")
+                      .toLowerCase()
+                      .includes(searchTerm.toLowerCase())
+                )
+                .map((c) => (
                 <TableRow key={c.id || c.name} hover>
                   <TableCell>{c.name}</TableCell>
                   <TableCell>{c.displayName}</TableCell>
@@ -933,6 +985,7 @@ function ActorsManagement() {
   const [totalElements, setTotalElements] = useState(0);
   const [usePagination, setUsePagination] = useState(true); // Toggle pagination
   const [allActors, setAllActors] = useState([]); // Store all actors for client-side pagination
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     loadActors();
@@ -1094,6 +1147,18 @@ function ActorsManagement() {
         </Box>
       </Box>
 
+      {/* Search */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          placeholder="Search actors by name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          size="small"
+          sx={{ minWidth: 300 }}
+          fullWidth
+        />
+      </Box>
+
       {showCreate || editing ? (
         <Card>
           <CardContent>
@@ -1118,7 +1183,15 @@ function ActorsManagement() {
         <Alert severity="error">{error}</Alert>
       ) : viewMode === "grid" ? (
         <Grid container spacing={3}>
-          {actors.map((actor) => (
+          {actors
+            .filter(
+              (actor) =>
+                searchTerm === "" ||
+                String(actor.name || "")
+                  .toLowerCase()
+                  .includes(searchTerm.toLowerCase())
+            )
+            .map((actor) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={actor.id}>
               <Card>
                 <CardContent>
@@ -1185,7 +1258,15 @@ function ActorsManagement() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {actors.map((actor) => (
+                {actors
+                  .filter(
+                    (actor) =>
+                      searchTerm === "" ||
+                      String(actor.name || "")
+                        .toLowerCase()
+                        .includes(searchTerm.toLowerCase())
+                  )
+                  .map((actor) => (
                   <TableRow key={actor.id} hover>
                     <TableCell>
                       <Avatar
@@ -2723,6 +2804,7 @@ function MoviesManagement() {
   const subtitleInputRef = useRef(null);
   const [subtitleUploadMovieId, setSubtitleUploadMovieId] = useState(null);
   const [subtitleUploadError, setSubtitleUploadError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     loadMovies();
@@ -2952,6 +3034,17 @@ function MoviesManagement() {
           {subtitleUploadError}
         </Alert>
       )}
+      {/* Search */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          placeholder="Search movies by title..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          size="small"
+          sx={{ minWidth: 300 }}
+          fullWidth
+        />
+      </Box>
       <Box
         sx={{
           display: "flex",
@@ -3004,7 +3097,15 @@ function MoviesManagement() {
         </Box>
       ) : viewMode === "grid" ? (
         <Grid container spacing={3}>
-          {movies.map((movie) => (
+          {movies
+            .filter(
+              (movie) =>
+                searchTerm === "" ||
+                String(movie.title || "")
+                  .toLowerCase()
+                  .includes(searchTerm.toLowerCase())
+            )
+            .map((movie) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={movie.id}>
               <Card
                 sx={{
@@ -3150,7 +3251,15 @@ function MoviesManagement() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {movies.map((movie) => (
+                {movies
+                  .filter(
+                    (movie) =>
+                      searchTerm === "" ||
+                      String(movie.title || "")
+                        .toLowerCase()
+                        .includes(searchTerm.toLowerCase())
+                  )
+                  .map((movie) => (
                   <TableRow key={movie.id} hover>
                     <TableCell>
                       <Avatar
@@ -3781,6 +3890,7 @@ function CountriesManagement() {
     open: false,
     country: null,
   });
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     loadCountries();
@@ -3913,6 +4023,17 @@ function CountriesManagement() {
           {success}
         </Alert>
       )}
+      {/* Search */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          placeholder="Search countries by name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          size="small"
+          sx={{ minWidth: 300 }}
+          fullWidth
+        />
+      </Box>
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
           <CircularProgress />
@@ -3939,7 +4060,15 @@ function CountriesManagement() {
         </Card>
       ) : viewMode === "grid" ? (
         <Grid container spacing={3}>
-          {countries.map((country) => (
+          {countries
+            .filter(
+              (country) =>
+                searchTerm === "" ||
+                String(country.name || "")
+                  .toLowerCase()
+                  .includes(searchTerm.toLowerCase())
+            )
+            .map((country) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={country.id}>
               <Card>
                 <CardContent sx={{ pb: 1 }}>
@@ -4030,7 +4159,15 @@ function CountriesManagement() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {countries.map((country) => (
+              {countries
+                .filter(
+                  (country) =>
+                    searchTerm === "" ||
+                    String(country.name || "")
+                      .toLowerCase()
+                      .includes(searchTerm.toLowerCase())
+                )
+                .map((country) => (
                 <TableRow key={country.id}>
                   <TableCell>
                     <img
@@ -5302,6 +5439,7 @@ function ReportsManagement() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     loadReports();
@@ -5345,6 +5483,18 @@ function ReportsManagement() {
         </Alert>
       )}
 
+      {/* Search */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          placeholder="Search reports by type, description, or reporter..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          size="small"
+          sx={{ minWidth: 300 }}
+          fullWidth
+        />
+      </Box>
+
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
           <CircularProgress />
@@ -5364,7 +5514,21 @@ function ReportsManagement() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {reports.map((report) => (
+              {reports
+                .filter(
+                  (report) =>
+                    searchTerm === "" ||
+                    String(report.reportType || "")
+                      .toLowerCase()
+                      .includes(searchTerm.toLowerCase()) ||
+                    String(report.reason || "")
+                      .toLowerCase()
+                      .includes(searchTerm.toLowerCase()) ||
+                    String(report.reporter?.username || "")
+                      .toLowerCase()
+                      .includes(searchTerm.toLowerCase())
+                )
+                .map((report) => (
                 <TableRow key={report.id} hover>
                   <TableCell>
                     <Typography variant="body2" fontWeight="bold">

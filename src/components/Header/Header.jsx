@@ -22,7 +22,12 @@ import MenuIcon from "@mui/icons-material/Menu";
 import { NAV_ITEMS, GENRES } from "../../constants";
 import { useAuth } from "../../hooks/useAuth";
 import UserAvatar from "../UserAvatar";
-import { quickSearch, getSearchSuggestions } from "../../api/streaming";
+import {
+  quickSearch,
+  getSearchSuggestions,
+  searchByActor,
+  searchByDirector,
+} from "../../api/streaming";
 
 const StyledHeader = styled("header", {
   shouldForwardProp: (prop) => prop !== "scrolled",
@@ -211,9 +216,60 @@ const Header = () => {
     };
   }, [query]);
 
-  const submitSearch = () => {
+  const submitSearch = async () => {
     const q = query.trim();
     if (!q) return;
+
+    // Try to search for actors, directors, and movies simultaneously
+    // Priority: Actor > Director > Movie Title
+    try {
+      const [actorResults, directorResults] = await Promise.allSettled([
+        searchByActor(q, 1, 3).catch(() => ({ content: [], data: [] })),
+        searchByDirector(q, 3).catch(() => ({ content: [], data: [] })),
+      ]);
+
+      // Check actor results
+      const actorData = actorResults.status === "fulfilled" ? actorResults.value : null;
+      const actorItems = actorData
+        ? Array.isArray(actorData?.content)
+          ? actorData.content
+          : Array.isArray(actorData?.data)
+          ? actorData.data
+          : Array.isArray(actorData)
+          ? actorData
+          : []
+        : [];
+
+      // Check director results
+      const directorData =
+        directorResults.status === "fulfilled" ? directorResults.value : null;
+      const directorItems = directorData
+        ? Array.isArray(directorData?.content)
+          ? directorData.content
+          : Array.isArray(directorData?.data)
+          ? directorData.data
+          : Array.isArray(directorData)
+          ? directorData
+          : []
+        : [];
+
+      // Priority: Actor first, then Director, then Movie Title
+      if (actorItems.length > 0) {
+        const params = new URLSearchParams({ actor: q });
+        navigate(`/movies?${params.toString()}`);
+        return;
+      }
+
+      if (directorItems.length > 0) {
+        const params = new URLSearchParams({ director: q });
+        navigate(`/movies?${params.toString()}`);
+        return;
+      }
+    } catch (err) {
+      console.error("Error in search:", err);
+    }
+
+    // Default: search by movie title
     const params = new URLSearchParams({ query: q });
     navigate(`/movies?${params.toString()}`);
   };
@@ -269,7 +325,7 @@ const Header = () => {
             <SearchIcon sx={{ mr: 1.25 }} onClick={submitSearch} />
             <InputBase
               id="search"
-              placeholder="Tìm kiếm phim, diễn viên…"
+              placeholder="Tìm kiếm phim, diễn viên, đạo diễn…"
               sx={{ flex: 1 }}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
