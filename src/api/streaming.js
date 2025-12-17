@@ -158,7 +158,7 @@ export function getStreamingStatistics() {
 export function searchMovies(body) {
   const payload = body || {};
   return jsonFetch("/search/movies", {
-    method: "POST",
+    method: "GET",
     body: JSON.stringify(payload),
   });
 }
