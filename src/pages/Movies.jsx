@@ -98,16 +98,17 @@ const Movies = () => {
   }, []);
 
   // Load movies from now-showing API
-  // Only load full movies if there's no genre/director filter in URL (to avoid loading all then filtering)
+  // Only load full movies if there's no genre/director/actor filter in URL (to avoid loading all then filtering)
   useEffect(() => {
-    // Check URL for genre/director filter first
+    // Check URL for genre/director/actor filter first
     const params = new URLSearchParams(location.search);
     const hasGenreFilter = params.get("genre");
     const hasDirectorFilter = params.get("director");
+    const hasActorFilter = params.get("actor");
 
-    // If there's a genre or director filter in URL, skip loading full movies
+    // If there's a genre, director, or actor filter in URL, skip loading full movies
     // Server search will handle it instead
-    if (hasGenreFilter || hasDirectorFilter) {
+    if (hasGenreFilter || hasDirectorFilter || hasActorFilter) {
       setLoading(false);
       setMovies([]); // Keep empty, server search will populate filteredMovies
       return;
@@ -180,10 +181,10 @@ const Movies = () => {
     loadNowShowingMovies();
   }, [location.search]);
 
-  // Enable server-side search when genre or director filters are active
+  // Enable server-side search when genre, director, or actor filters are active
   const shouldServerSearch = useMemo(
-    () => Boolean(filters.genre || filters.director),
-    [filters.genre, filters.director]
+    () => Boolean(filters.genre || filters.director || filters.actor),
+    [filters.genre, filters.director, filters.actor]
   );
 
   // Initialize from URL query
@@ -535,7 +536,7 @@ const Movies = () => {
       filters
     );
 
-    // Trigger server search if we have genre/director OR if we have search query
+    // Trigger server search if we have genre/director/actor OR if we have search query
     const hasSearchQuery = filters.search && filters.search.trim().length > 0;
     const shouldTriggerSearch = shouldServerSearch || hasSearchQuery;
 
