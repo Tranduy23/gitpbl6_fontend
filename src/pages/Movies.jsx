@@ -519,7 +519,12 @@ const Movies = () => {
   // Trigger server search when keyword changes
   useEffect(() => {
     // Don't trigger server search while initial loading (unless we skipped loading due to URL filter)
-    if (loading && movies.length === 0 && !shouldServerSearch) {
+    if (
+      loading &&
+      movies.length === 0 &&
+      !shouldServerSearch &&
+      !filters.search
+    ) {
       return;
     }
 
@@ -529,10 +534,17 @@ const Movies = () => {
       "filters:",
       filters
     );
-    if (shouldServerSearch) {
-      // Debounce for director and actor filters to avoid too many API calls while typing
+
+    // Trigger server search if we have genre/director OR if we have search query
+    const hasSearchQuery = filters.search && filters.search.trim().length > 0;
+    const shouldTriggerSearch = shouldServerSearch || hasSearchQuery;
+
+    if (shouldTriggerSearch) {
+      // Debounce for director, actor, and search filters to avoid too many API calls while typing
       // But for genre filter, trigger immediately (especially when coming from URL)
-      const isDirectorOrActor = Boolean(filters.director || filters.actor);
+      const isDirectorOrActorOrSearch = Boolean(
+        filters.director || filters.actor || filters.search
+      );
       const timeoutId = setTimeout(
         () => {
           // Reset state before fetching to show loading state
@@ -546,12 +558,14 @@ const Movies = () => {
             "director:",
             filters.director,
             "actor:",
-            filters.actor
+            filters.actor,
+            "search:",
+            filters.search
           );
           fetchAdvanced(0, false);
         },
-        isDirectorOrActor ? 500 : 0
-      ); // 500ms debounce for director/actor, immediate for genre
+        isDirectorOrActorOrSearch ? 500 : 0
+      ); // 500ms debounce for director/actor/search, immediate for genre
 
       return () => clearTimeout(timeoutId);
     } else {
@@ -562,6 +576,7 @@ const Movies = () => {
       if (
         filters.genre === "" &&
         filters.director === "" &&
+        !filters.search &&
         movies.length > 0
       ) {
         setFilteredMovies(movies);
@@ -608,10 +623,29 @@ const Movies = () => {
   };
 
   const handleFilterChange = (filterType, value) => {
-    setFilters((prev) => ({
-      ...prev,
-      [filterType]: value,
-    }));
+    setFilters((prev) => {
+      const next = {
+        ...prev,
+        [filterType]: value,
+      };
+
+      // Update URL to sync with filters
+      const params = new URLSearchParams();
+      if (next.search) params.set("query", next.search);
+      if (next.genre) params.set("genre", next.genre);
+      if (next.country) params.set("country", next.country);
+      if (next.actor) params.set("actor", next.actor);
+      if (next.director) params.set("director", next.director);
+      if (next.year) params.set("year", next.year);
+
+      const newSearch = params.toString();
+      const newUrl = newSearch
+        ? `${location.pathname}?${newSearch}`
+        : location.pathname;
+      navigate(newUrl, { replace: true });
+
+      return next;
+    });
   };
 
   const clearFilters = () => {
