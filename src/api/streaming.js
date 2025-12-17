@@ -157,12 +157,22 @@ export function getStreamingStatistics() {
 }
 
 // SEARCH APIs
-// POST /api/search/movies
+// GET /api/search/movies?query=&page=&size=&sortBy=&sortOrder=
 export function searchMovies(body) {
   const payload = body || {};
-  return jsonFetch("/search/movies", {
+  const params = new URLSearchParams();
+
+  if (payload.query) params.append("query", payload.query);
+  if (payload.page !== undefined) params.append("page", String(payload.page));
+  if (payload.size !== undefined) params.append("size", String(payload.size));
+  if (payload.sortBy) params.append("sortBy", payload.sortBy);
+  if (payload.sortOrder) params.append("sortOrder", payload.sortOrder);
+
+  const queryString = params.toString();
+  const url = queryString ? `/search/movies?${queryString}` : "/search/movies";
+
+  return jsonFetch(url, {
     method: "GET",
-    body: JSON.stringify(payload),
   });
 }
 
