@@ -3,14 +3,22 @@
 
 /**
  * Resolve API base URL from environment or default
+ * Auto-detect production environment
  */
-const API_BASE_URL = import.meta?.env?.VITE_API_BASE_URL || "/api";
+const isProduction = window.location.hostname === 'phimnhalam.website' || 
+                     window.location.hostname === 'www.phimnhalam.website';
+
+const API_BASE_URL = import.meta?.env?.VITE_API_BASE_URL || 
+                     (isProduction ? "https://api.phimnhalam.website/api" : "/api");
+
 const API_KEY = import.meta?.env?.VITE_API_KEY || "";
+
 const STATUS_BASE_URL =
   import.meta?.env?.VITE_MOVIE_STATUS_BASE_URL ||
+  (isProduction ? "https://api.phimnhalam.website" :
   (API_BASE_URL.endsWith("/api")
     ? API_BASE_URL.replace(/\/api$/, "")
-    : API_BASE_URL);
+    : API_BASE_URL));
 
 function buildUrl(path) {
   if (path.startsWith("http://") || path.startsWith("https://")) return path;

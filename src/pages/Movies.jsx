@@ -32,7 +32,6 @@ import {
   searchByActor,
   searchByDirector,
   searchByGenre,
-  getNowShowingMovies,
 } from "../api/streaming";
 
 const Movies = () => {
@@ -145,10 +144,15 @@ const Movies = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await getNowShowingMovies(100);
-        const moviesData = Array.isArray(response)
-          ? response
-          : response?.content || response?.movies || response?.data || [];
+
+        // Use /api/movies endpoint instead of /movies/now-showing
+        const res = await fetch("/api/movies?page=0&size=100&sort=title,asc");
+        if (!res.ok) throw new Error("Failed to fetch movies");
+        const data = await res.json();
+
+        const moviesData = Array.isArray(data)
+          ? data
+          : data?.content || data?.movies || data?.data || [];
 
         const transformedMovies = moviesData.map((movie) => ({
           id: movie.id,
