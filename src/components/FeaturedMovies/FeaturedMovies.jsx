@@ -76,7 +76,8 @@ const SectionSubtitle = styled(Typography)(({ theme }) => ({
 const MoviesContainer = styled(Box)(() => ({
   position: "relative",
   width: "100%",
-  overflow: "hidden",
+  overflow: "visible",
+  paddingBottom: 20,
 }));
 
 const MoviesScroll = styled(Box)(({ theme }) => ({
@@ -84,11 +85,13 @@ const MoviesScroll = styled(Box)(({ theme }) => ({
   gap: theme.spacing(2),
   overflowX: "auto",
   scrollBehavior: "smooth",
-  padding: theme.spacing(1),
+  padding: theme.spacing(3, 1),
   // Hide scrollbar
   msOverflowStyle: "none",
   scrollbarWidth: "none",
   "&::-webkit-scrollbar": { display: "none" },
+  // Allow overflow for hover effects
+  overflowY: "visible",
 }));
 
 const NavigationButton = styled(IconButton)(({ theme, direction }) => ({
@@ -226,13 +229,31 @@ const FeaturedMovies = memo(function FeaturedMovies({
 
   const scrollLeft = () => {
     if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: -320, behavior: "smooth" });
+      // Lấy kích thước card đầu tiên + gap
+      const firstCard = scrollRef.current.querySelector("[data-card]");
+      if (firstCard) {
+        const cardWidth = firstCard.offsetWidth;
+        const gap = 16; // theme.spacing(2)
+        scrollRef.current.scrollBy({
+          left: -(cardWidth + gap),
+          behavior: "smooth",
+        });
+      }
     }
   };
 
   const scrollRight = () => {
     if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: 320, behavior: "smooth" });
+      // Lấy kích thước card đầu tiên + gap
+      const firstCard = scrollRef.current.querySelector("[data-card]");
+      if (firstCard) {
+        const cardWidth = firstCard.offsetWidth;
+        const gap = 16; // theme.spacing(2)
+        scrollRef.current.scrollBy({
+          left: cardWidth + gap,
+          behavior: "smooth",
+        });
+      }
     }
   };
 
@@ -267,6 +288,7 @@ const FeaturedMovies = memo(function FeaturedMovies({
             {items.map((movie, index) => (
               <MovieCard
                 key={movie.id}
+                data-card
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <MovieMedia image={movie.thumb} className="movieMedia" />
