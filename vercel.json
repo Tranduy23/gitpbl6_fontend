@@ -1,24 +1,29 @@
 {
+  "buildCommand": "npm run build",
+  "env": {
+    "VITE_API_BASE_URL": "https://api.phimnhalam.website/api",
+    "VITE_API_URL": "https://api.phimnhalam.website"
+  },
   "rewrites": [
     {
       "source": "/api/:path*",
       "destination": "https://api.phimnhalam.website/api/:path*"
     },
     {
-      "source": "/movies/now-showing",
-      "destination": "https://api.phimnhalam.website/movies/now-showing"
+      "source": "/movies/now-showing:path*",
+      "destination": "https://api.phimnhalam.website/movies/now-showing:path*"
     },
     {
-      "source": "/movies/featured",
-      "destination": "https://api.phimnhalam.website/movies/featured"
+      "source": "/movies/featured:path*",
+      "destination": "https://api.phimnhalam.website/movies/featured:path*"
     },
     {
-      "source": "/movies/upcoming",
-      "destination": "https://api.phimnhalam.website/movies/upcoming"
+      "source": "/movies/upcoming:path*",
+      "destination": "https://api.phimnhalam.website/movies/upcoming:path*"
     },
     {
-      "source": "/movies/popular",
-      "destination": "https://api.phimnhalam.website/movies/popular"
+      "source": "/movies/popular:path*",
+      "destination": "https://api.phimnhalam.website/movies/popular:path*"
     },
     {
       "source": "/subtitles/:path*",
