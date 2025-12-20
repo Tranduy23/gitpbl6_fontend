@@ -38,11 +38,16 @@ import {
 const Movies = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [movies, setMovies] = useState([]);
+
+  // State
+  const [allMovies, setAllMovies] = useState([]); // All movies from initial load
+  const [filteredMovies, setFilteredMovies] = useState([]); // Filtered results
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showFilter, setShowFilter] = useState(false);
-  const [filteredMovies, setFilteredMovies] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Filter state
   const [filters, setFilters] = useState({
     genre: "",
     year: "",
@@ -51,16 +56,19 @@ const Movies = () => {
     actor: "",
     director: "",
   });
-  const [page, setPage] = useState(0);
-  const [size] = useState(24);
-  const [isSearching, setIsSearching] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [searchMode, setSearchMode] = useState(null); // 'movie' | 'actor' | 'director'
+
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 24;
-  const [dbGenres, setDbGenres] = useState([]);
 
-  // Fetch genres from API (like Header does)
+  // Metadata for dropdowns
+  const [dbGenres, setDbGenres] = useState([]);
+  const [dbYears, setDbYears] = useState([]);
+  const [dbCountries, setDbCountries] = useState([]);
+
+  // =============================================================================
+  // STEP 1: Load metadata (genres, years, countries) from API
+  // =============================================================================
   useEffect(() => {
     let aborted = false;
     (async () => {
@@ -72,24 +80,40 @@ const Movies = () => {
         if (!res.ok) throw new Error("failed");
         const data = await res.json();
         const list = Array.isArray(data) ? data : data?.content || [];
+
         const categories = new Set();
+        const years = new Set();
+        const countries = new Set();
+
         list.forEach((m) => {
           (m?.categories || m?.genres || []).forEach((c) => {
             if (c) categories.add(String(c).trim());
           });
+          if (m?.year) years.add(String(m.year));
+          if (m?.country || m?.countryName) {
+            countries.add(String(m.country || m.countryName).trim());
+          }
         });
+
         if (!aborted) {
-          const genresList = Array.from(categories)
-            .filter(Boolean)
-            .sort((a, b) => String(a).localeCompare(String(b), "vi"));
-          setDbGenres(genresList);
-          console.log("Genres loaded from API:", genresList);
+          setDbGenres(
+            Array.from(categories)
+              .filter(Boolean)
+              .sort((a, b) => String(a).localeCompare(String(b), "vi"))
+          );
+          setDbYears(
+            Array.from(years)
+              .filter(Boolean)
+              .sort((a, b) => b.localeCompare(a))
+          );
+          setDbCountries(
+            Array.from(countries)
+              .filter(Boolean)
+              .sort((a, b) => String(a).localeCompare(String(b), "vi"))
+          );
         }
       } catch (err) {
-        console.error("Error loading genres from API:", err);
-        if (!aborted) {
-          setDbGenres([]);
-        }
+        console.error("Error loading metadata:", err);
       }
     })();
     return () => {
@@ -97,33 +121,35 @@ const Movies = () => {
     };
   }, []);
 
-  // Load movies from now-showing API
-  // Only load full movies if there's no genre/director/actor filter in URL (to avoid loading all then filtering)
+  // =============================================================================
+  // STEP 2: Sync filters with URL on mount and URL change
+  // =============================================================================
   useEffect(() => {
-    // Check URL for genre/director/actor filter first
     const params = new URLSearchParams(location.search);
-    const hasGenreFilter = params.get("genre");
-    const hasDirectorFilter = params.get("director");
-    const hasActorFilter = params.get("actor");
+    const newFilters = {
+      search: params.get("query") || "",
+      genre: params.get("genre") || "",
+      country: params.get("country") || "",
+      year: params.get("year") || "",
+      actor: params.get("actor") || "",
+      director: params.get("director") || "",
+    };
+    setFilters(newFilters);
+  }, [location.search]);
 
-    // If there's a genre, director, or actor filter in URL, skip loading full movies
-    // Server search will handle it instead
-    if (hasGenreFilter || hasDirectorFilter || hasActorFilter) {
-      setLoading(false);
-      setMovies([]); // Keep empty, server search will populate filteredMovies
-      return;
-    }
-
-    const loadNowShowingMovies = async () => {
+  // =============================================================================
+  // STEP 3: Load initial movies from API (only once on mount)
+  // =============================================================================
+  useEffect(() => {
+    const loadMovies = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await getNowShowingMovies(100); // Load more movies
+        const response = await getNowShowingMovies(100);
         const moviesData = Array.isArray(response)
           ? response
           : response?.content || response?.movies || response?.data || [];
 
-        // Transform API response to match expected format
         const transformedMovies = moviesData.map((movie) => ({
           id: movie.id,
           title: movie.title,
@@ -158,495 +184,191 @@ const Movies = () => {
           availableQualities: movie.availableQualities || [],
         }));
 
-        // Debug: log genres data
-        const allGenres = transformedMovies
-          .flatMap((m) => m.genres || [])
-          .filter(Boolean);
-        console.log("Total movies loaded:", transformedMovies.length);
-        console.log("Genres found in movies:", allGenres);
-        console.log("Unique genres:", [...new Set(allGenres)]);
-
-        setMovies(transformedMovies);
-        setFilteredMovies(transformedMovies);
+        setAllMovies(transformedMovies);
       } catch (err) {
-        console.error("Error loading now-showing movies:", err);
+        console.error("Error loading movies:", err);
         setError(err.message || "Failed to load movies");
-        setMovies([]);
-        setFilteredMovies([]);
       } finally {
         setLoading(false);
       }
     };
 
-    loadNowShowingMovies();
-  }, [location.search]);
+    loadMovies();
+  }, []);
 
-  // Enable server-side search when genre, director, or actor filters are active
-  const shouldServerSearch = useMemo(
-    () => Boolean(filters.genre || filters.director || filters.actor),
-    [filters.genre, filters.director, filters.actor]
-  );
+  // =============================================================================
+  // STEP 4: Determine if we need server search
+  // =============================================================================
+  const needsServerSearch = useMemo(() => {
+    return Boolean(
+      filters.genre || filters.director || filters.actor || filters.search
+    );
+  }, [filters.genre, filters.director, filters.actor, filters.search]);
 
-  // Initialize from URL query
+  // =============================================================================
+  // STEP 5: Apply filters (client-side or server-side)
+  // =============================================================================
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const q = params.get("query") || "";
-    const g = params.get("genre") || "";
-    const c = params.get("country") || "";
-    const a = params.get("actor") || "";
-    const d = params.get("director") || "";
+    const applyFilters = async () => {
+      // Case 1: Need server search (genre, director, actor, or search)
+      if (needsServerSearch) {
+        setIsSearching(true);
+        try {
+          let data;
 
-    // Always create new filter object to ensure state update
-    const next = {
-      search: q,
-      genre: g,
-      country: c,
-      actor: a,
-      director: d,
-      year: filters.year || "", // Preserve year if not in URL
+          // Call appropriate server search API
+          if (filters.genre) {
+            data = await searchByGenre(filters.genre, 100);
+          } else if (filters.director) {
+            data = await searchByDirector(filters.director, 100);
+          } else if (filters.actor) {
+            data = await searchByActor(filters.actor, 0, 100);
+          } else if (filters.search) {
+            data = await searchMovies({
+              query: filters.search,
+              page: 0,
+              size: 100,
+              sortBy: "title",
+              sortOrder: "asc",
+            });
+          }
+
+          // Transform server results
+          const source = Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data?.content)
+            ? data.content
+            : Array.isArray(data?.movies)
+            ? data.movies
+            : Array.isArray(data)
+            ? data
+            : [];
+
+          let results = source.map((movie) => ({
+            id: movie.id,
+            title: movie.title,
+            englishTitle: movie.title,
+            ageRating: movie.ageRating || null,
+            imdbRating: movie.imdbRating ?? null,
+            averageRating: movie.averageRating ?? null,
+            totalRatings: movie.totalRatings ?? 0,
+            year: movie.year != null ? String(movie.year) : undefined,
+            duration: movie.videoDuration || undefined,
+            genres: (movie.categories || movie.genres || [])
+              .map((c) => String(c).trim())
+              .filter(Boolean),
+            synopsis: movie.synopsis || "",
+            thumb: movie.posterUrl || undefined,
+            posterUrl: movie.posterUrl || undefined,
+            videoUrl: movie.videoUrl || undefined,
+            trailerUrl: movie.trailerUrl || undefined,
+            streamingUrl: movie.streamingUrl || undefined,
+            isAvailable: Boolean(movie.isAvailable),
+            actors: movie.actors || [],
+            directors: movie.directors || [],
+            country: movie.country || undefined,
+            language: movie.language || undefined,
+            viewCount: movie.viewCount ?? 0,
+            likeCount: movie.likeCount ?? 0,
+            dislikeCount: movie.dislikeCount ?? 0,
+            isFeatured: Boolean(movie.isFeatured),
+            isTrending: Boolean(movie.isTrending),
+            releaseDate: movie.releaseDate || undefined,
+            downloadEnabled: Boolean(movie.downloadEnabled),
+            availableQualities: movie.availableQualities || [],
+          }));
+
+          // Apply client-side filters on server results (year, country)
+          if (filters.year) {
+            const yearStr = String(filters.year).trim();
+            results = results.filter(
+              (m) => String(m.year || "").trim() === yearStr
+            );
+          }
+          if (filters.country) {
+            const countryStr = String(filters.country).toLowerCase().trim();
+            results = results.filter(
+              (m) =>
+                String(m.country || "")
+                  .toLowerCase()
+                  .trim() === countryStr
+            );
+          }
+
+          setFilteredMovies(results);
+        } catch (err) {
+          console.error("Server search error:", err);
+          setFilteredMovies([]);
+        } finally {
+          setIsSearching(false);
+        }
+      }
+      // Case 2: Client-side filtering only (year, country, or no filters)
+      else {
+        let results = [...allMovies];
+
+        if (filters.year) {
+          const yearStr = String(filters.year).trim();
+          results = results.filter(
+            (m) => String(m.year || "").trim() === yearStr
+          );
+        }
+        if (filters.country) {
+          const countryStr = String(filters.country).toLowerCase().trim();
+          results = results.filter(
+            (m) =>
+              String(m.country || "")
+                .toLowerCase()
+                .trim() === countryStr
+          );
+        }
+
+        setFilteredMovies(results);
+      }
+
+      // Reset to page 1 when filters change
+      setCurrentPage(1);
     };
 
-    // Only update if filters actually changed
-    const hasChanged =
-      filters.search !== next.search ||
-      filters.genre !== next.genre ||
-      filters.country !== next.country ||
-      filters.actor !== next.actor ||
-      filters.director !== next.director;
+    // Debounce for search/director/actor to avoid too many API calls
+    const shouldDebounce = filters.search || filters.director || filters.actor;
+    const timeoutId = setTimeout(applyFilters, shouldDebounce ? 500 : 0);
 
-    if (hasChanged) {
-      setFilters(next);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.search]);
-
-  // Local fallback filtering when no server search (empty filters)
-  useEffect(() => {
-    // Only set filteredMovies from movies if not using server search
-    // AND if we actually have movies loaded (not empty array from skipped load)
-    if (!shouldServerSearch && movies.length > 0) {
-      setFilteredMovies(movies);
-    }
-  }, [movies, shouldServerSearch]);
-
-  // Local filtering only when NOT using server search
-  useEffect(() => {
-    // Skip local filtering if using server search (genre or director)
-    // But still apply other filters (country, year, search, actor) even when server search is active
-    if (shouldServerSearch && filters.genre) {
-      // If genre filter is active, server search will handle it
-      // But we still need to apply other local filters after server search results
-      return;
-    }
-
-    let current = movies;
-
-    if (filters.search) {
-      current = current.filter(
-        (movie) =>
-          movie.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-          (movie.englishTitle &&
-            movie.englishTitle
-              .toLowerCase()
-              .includes(filters.search.toLowerCase()))
-      );
-    }
-
-    if (filters.genre && !shouldServerSearch) {
-      // Only apply genre filter locally if not using server search
-      // Use exact match (case-insensitive) for categories
-      const filterGenreLower = String(filters.genre).toLowerCase().trim();
-      current = current.filter(
-        (movie) =>
-          Array.isArray(movie.genres) &&
-          movie.genres.some(
-            (genre) => String(genre).toLowerCase().trim() === filterGenreLower
-          )
-      );
-    }
-
-    if (filters.year) {
-      current = current.filter((movie) => movie.year === filters.year);
-    }
-
-    if (filters.country) {
-      current = current.filter(
-        (movie) =>
-          movie.country &&
-          String(movie.country).toLowerCase() === filters.country.toLowerCase()
-      );
-    }
-
-    if (filters.actor) {
-      const needle = filters.actor.toLowerCase();
-      current = current.filter(
-        (movie) =>
-          Array.isArray(movie.actors) &&
-          movie.actors.some((n) => String(n).toLowerCase().includes(needle))
-      );
-    }
-
-    if (filters.director && !shouldServerSearch) {
-      // Only apply director filter locally if not using server search
-      const needle = filters.director.toLowerCase();
-      current = current.filter(
-        (movie) =>
-          Array.isArray(movie.directors) &&
-          movie.directors.some((n) => String(n).toLowerCase().includes(needle))
-      );
-    }
-
-    setFilteredMovies(current);
-    setCurrentPage(1); // Reset to page 1 when filters change
-  }, [movies, filters, shouldServerSearch]);
-
-  const transformSearchResults = (data) => {
-    const source = Array.isArray(data?.data)
-      ? data.data
-      : Array.isArray(data?.content)
-      ? data.content
-      : Array.isArray(data?.movies)
-      ? data.movies
-      : Array.isArray(data)
-      ? data
-      : [];
-    const items = source;
-    return items.map((movie) => ({
-      id: movie.id,
-      title: movie.title,
-      englishTitle: movie.title,
-      ageRating: movie.ageRating || null,
-      imdbRating: movie.imdbRating ?? null,
-      averageRating: movie.averageRating ?? null,
-      totalRatings: movie.totalRatings ?? 0,
-      year: movie.year != null ? String(movie.year) : undefined,
-      duration: movie.videoDuration || undefined,
-      genres: (movie.categories || movie.genres || [])
-        .map((c) => String(c).trim())
-        .filter(Boolean),
-      synopsis: movie.synopsis || "",
-      thumb: movie.posterUrl || undefined,
-      posterUrl: movie.posterUrl || undefined,
-      videoUrl: movie.videoUrl || undefined,
-      trailerUrl: movie.trailerUrl || undefined,
-      streamingUrl: movie.streamingUrl || undefined,
-      isAvailable: Boolean(movie.isAvailable),
-      actors: movie.actors || [],
-      directors: movie.directors || [],
-      country: movie.country || undefined,
-      language: movie.language || undefined,
-      viewCount: movie.viewCount ?? 0,
-      likeCount: movie.likeCount ?? 0,
-      dislikeCount: movie.dislikeCount ?? 0,
-      isFeatured: Boolean(movie.isFeatured),
-      isTrending: Boolean(movie.isTrending),
-      releaseDate: movie.releaseDate || undefined,
-      downloadEnabled: Boolean(movie.downloadEnabled),
-      availableQualities: movie.availableQualities || [],
-    }));
-  };
-
-  const fetchAdvanced = async (nextPage = 0, append = false) => {
-    setIsSearching(true);
-    try {
-      let data;
-      let mode = searchMode;
-
-      // Determine mode for this request
-      if (filters.genre) {
-        mode = "genre";
-        console.log("[Movies] Genre filter active:", filters.genre);
-      } else if (filters.actor) mode = "actor";
-      else if (filters.director) mode = "director";
-
-      if (!mode) {
-        // Try title search first
-        const body = {
-          query: filters.search || undefined,
-          page: nextPage,
-          size,
-          sortBy: "title",
-          sortOrder: "asc",
-        };
-        const movieRes = await searchMovies(body);
-        const movieItems = transformSearchResults(movieRes);
-        if (movieItems.length > 0 || !filters.search) {
-          data = movieRes;
-          mode = "movie";
-        } else {
-          // Fallback to actor, then director
-          const actorRes = await searchByActor(
-            filters.search,
-            nextPage,
-            size
-          ).catch(() => null);
-          const actorItems = transformSearchResults(actorRes || {});
-          if (actorItems.length > 0) {
-            data = actorRes;
-            mode = "actor";
-            if (nextPage === 0) {
-              setFilters((prev) => ({
-                ...prev,
-                actor: prev.search,
-                director: "",
-                search: "",
-              }));
-            }
-          } else {
-            const dirRes = await searchByDirector(filters.search, size).catch(
-              () => null
-            );
-            data = dirRes || { content: [] };
-            mode = "director";
-            if (nextPage === 0) {
-              setFilters((prev) => ({
-                ...prev,
-                director: prev.search,
-                actor: "",
-                search: "",
-              }));
-            }
-          }
-        }
-      } else if (mode === "genre") {
-        console.log(
-          "[Movies] Calling searchByGenre with:",
-          filters.genre,
-          "limit:",
-          size
-        );
-        try {
-          data = await searchByGenre(filters.genre, size);
-          console.log("[Movies] searchByGenre response:", data);
-        } catch (err) {
-          console.error("[Movies] searchByGenre error:", err);
-          // Fallback to empty result
-          data = { data: [], content: [] };
-        }
-      } else if (mode === "actor") {
-        data = await searchByActor(
-          filters.actor || filters.search,
-          nextPage,
-          size
-        );
-      } else if (mode === "director") {
-        console.log(
-          "[Movies] Calling searchByDirector with:",
-          filters.director || filters.search,
-          "limit:",
-          size
-        );
-        try {
-          data = await searchByDirector(
-            filters.director || filters.search,
-            size
-          );
-          console.log("[Movies] searchByDirector response:", data);
-        } catch (err) {
-          console.error("[Movies] searchByDirector error:", err);
-          // Fallback to empty result
-          data = { data: [], content: [] };
-        }
-      } else {
-        const body = {
-          query: filters.search || undefined,
-          page: nextPage,
-          size,
-          sortBy: "title",
-          sortOrder: "asc",
-        };
-        data = await searchMovies(body);
-      }
-      let items = transformSearchResults(data);
-      console.log(
-        "[Movies] Transformed items count:",
-        items.length,
-        "mode:",
-        mode
-      );
-      console.log("[Movies] Sample items:", items.slice(0, 2));
-
-      // Apply additional local filters (country, year, actor) to server search results
-      // This allows combining genre/director filter with country/year filters
-      if (filters.country) {
-        items = items.filter(
-          (movie) =>
-            movie.country &&
-            String(movie.country).toLowerCase() ===
-              filters.country.toLowerCase()
-        );
-      }
-
-      if (filters.year) {
-        items = items.filter((movie) => movie.year === filters.year);
-      }
-
-      if (filters.actor) {
-        const needle = filters.actor.toLowerCase();
-        items = items.filter(
-          (movie) =>
-            Array.isArray(movie.actors) &&
-            movie.actors.some((n) => String(n).toLowerCase().includes(needle))
-        );
-      }
-
-      const totalPages =
-        data?.totalPages ?? (items.length < size ? nextPage + 1 : nextPage + 2);
-      setHasMore(nextPage + 1 < totalPages);
-
-      // Set filteredMovies with additional filters applied
-      setFilteredMovies((prev) => {
-        const newItems = append ? [...prev, ...items] : items;
-        console.log(
-          "[Movies] Setting filteredMovies to:",
-          newItems.length,
-          "items (append:",
-          append,
-          ", with additional filters applied)"
-        );
-        return newItems;
-      });
-      setPage(nextPage);
-      setSearchMode(mode);
-    } catch (e) {
-      console.error("[Movies] Error in fetchAdvanced:", e);
-      // fallback: keep local filtered
-      setHasMore(false);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  // Trigger server search when keyword changes
-  useEffect(() => {
-    // Don't trigger server search while initial loading (unless we skipped loading due to URL filter)
-    if (
-      loading &&
-      movies.length === 0 &&
-      !shouldServerSearch &&
-      !filters.search
-    ) {
-      return;
-    }
-
-    console.log(
-      "[Movies] shouldServerSearch:",
-      shouldServerSearch,
-      "filters:",
-      filters
-    );
-
-    // Trigger server search if we have genre/director/actor OR if we have search query
-    const hasSearchQuery = filters.search && filters.search.trim().length > 0;
-    const shouldTriggerSearch = shouldServerSearch || hasSearchQuery;
-
-    if (shouldTriggerSearch) {
-      // Debounce for director, actor, and search filters to avoid too many API calls while typing
-      // But for genre filter, trigger immediately (especially when coming from URL)
-      const isDirectorOrActorOrSearch = Boolean(
-        filters.director || filters.actor || filters.search
-      );
-      const timeoutId = setTimeout(
-        () => {
-          // Reset state before fetching to show loading state
-          setFilteredMovies([]);
-          setPage(0);
-          setSearchMode(null);
-          setIsSearching(true); // Show loading state
-          console.log(
-            "[Movies] Triggering fetchAdvanced for server search, genre:",
-            filters.genre,
-            "director:",
-            filters.director,
-            "actor:",
-            filters.actor,
-            "search:",
-            filters.search
-          );
-          fetchAdvanced(0, false);
-        },
-        isDirectorOrActorOrSearch ? 500 : 0
-      ); // 500ms debounce for director/actor/search, immediate for genre
-
-      return () => clearTimeout(timeoutId);
-    } else {
-      setPage(0);
-      setHasMore(true);
-      setSearchMode(null);
-      // Reset to show all movies when no server search filters
-      if (
-        filters.genre === "" &&
-        filters.director === "" &&
-        !filters.search &&
-        movies.length > 0
-      ) {
-        setFilteredMovies(movies);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => clearTimeout(timeoutId);
   }, [
-    loading,
-    shouldServerSearch,
-    filters.search,
-    filters.actor,
-    filters.director,
+    allMovies,
     filters.genre,
-    movies.length,
+    filters.year,
+    filters.country,
+    filters.search,
+    filters.director,
+    filters.actor,
+    needsServerSearch,
   ]);
 
-  // Re-apply local filters (country, year) when they change and server search is active
-  // This allows combining genre/director filter with country/year filters
-  // When country/year changes, re-fetch from server to get fresh results with new filters
-  useEffect(() => {
-    if (shouldServerSearch && (filters.genre || filters.director)) {
-      // When country or year changes while server search is active, re-fetch to apply new filters
-      // This ensures we get the latest results with the correct filters applied
-      const timeoutId = setTimeout(() => {
-        if (filters.genre || filters.director) {
-          // Only re-fetch if we have a server search filter active
-          setPage(0);
-          setSearchMode(null);
-          fetchAdvanced(0, false);
-        }
-      }, 300); // Small debounce to avoid too many calls when user is changing filters
-
-      return () => clearTimeout(timeoutId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.country, filters.year]);
-
-  const handleMovieClick = (movieId) => {
-    navigate(`/movie/${movieId}`);
-  };
-
-  const handlePlayClick = (movieId) => {
-    navigate(`/stream/${movieId}`);
-  };
-
+  // =============================================================================
+  // Handlers
+  // =============================================================================
   const handleFilterChange = (filterType, value) => {
-    setFilters((prev) => {
-      const next = {
-        ...prev,
-        [filterType]: value,
-      };
+    const newFilters = {
+      ...filters,
+      [filterType]: value,
+    };
+    setFilters(newFilters);
 
-      // Update URL to sync with filters
-      const params = new URLSearchParams();
-      if (next.search) params.set("query", next.search);
-      if (next.genre) params.set("genre", next.genre);
-      if (next.country) params.set("country", next.country);
-      if (next.actor) params.set("actor", next.actor);
-      if (next.director) params.set("director", next.director);
-      if (next.year) params.set("year", next.year);
+    // Update URL
+    const params = new URLSearchParams();
+    if (newFilters.search) params.set("query", newFilters.search);
+    if (newFilters.genre) params.set("genre", newFilters.genre);
+    if (newFilters.country) params.set("country", newFilters.country);
+    if (newFilters.year) params.set("year", newFilters.year);
+    if (newFilters.actor) params.set("actor", newFilters.actor);
+    if (newFilters.director) params.set("director", newFilters.director);
 
-      const newSearch = params.toString();
-      const newUrl = newSearch
-        ? `${location.pathname}?${newSearch}`
-        : location.pathname;
-      navigate(newUrl, { replace: true });
-
-      return next;
-    });
+    const newUrl = params.toString()
+      ? `${location.pathname}?${params.toString()}`
+      : location.pathname;
+    navigate(newUrl, { replace: true });
   };
 
   const clearFilters = () => {
@@ -658,42 +380,36 @@ const Movies = () => {
       actor: "",
       director: "",
     });
-    setPage(0);
-    setHasMore(true);
-    setSearchMode(null);
+    navigate(location.pathname, { replace: true });
   };
 
-  // Get unique genres, years, countries for filter options
-  // Use dbGenres from API if available, otherwise fallback to genres from loaded movies
-  const genresFromMovies = [
-    ...new Set(
-      movies
-        .flatMap((movie) => {
-          // Use genres field which was already transformed from categories/genres
-          return Array.isArray(movie.genres) ? movie.genres : [];
-        })
-        .filter(Boolean)
-        .map((g) => String(g).trim())
-        .filter((g) => g.length > 0)
-    ),
-  ].sort((a, b) => String(a).localeCompare(String(b), "vi"));
+  const handleMovieClick = (movieId) => {
+    navigate(`/movie/${movieId}`);
+  };
 
-  // Prefer dbGenres from API (more complete), fallback to genres from loaded movies
-  const uniqueGenres = dbGenres.length > 0 ? dbGenres : genresFromMovies;
-  const uniqueYears = [...new Set(movies.map((movie) => movie.year))].sort(
-    (a, b) => b - a
-  );
-  const uniqueCountries = [
-    ...new Set(movies.map((movie) => movie.country).filter(Boolean)),
-  ].sort((a, b) => String(a).localeCompare(String(b), "vi"));
+  const handlePlayClick = (movieId) => {
+    navigate(`/stream/${movieId}`);
+  };
 
-  // Calculate pagination
+  // =============================================================================
+  // Pagination
+  // =============================================================================
   const totalPages = Math.ceil(filteredMovies.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedMovies = filteredMovies.slice(startIndex, endIndex);
 
-  if (loading && !shouldServerSearch) {
+  // =============================================================================
+  // Dropdown options
+  // =============================================================================
+  const uniqueGenres = dbGenres.length > 0 ? dbGenres : [];
+  const uniqueYears = dbYears.length > 0 ? dbYears : [];
+  const uniqueCountries = dbCountries.length > 0 ? dbCountries : [];
+
+  // =============================================================================
+  // Render
+  // =============================================================================
+  if (loading) {
     return (
       <Box
         sx={{
@@ -711,7 +427,7 @@ const Movies = () => {
     );
   }
 
-  if (error && !shouldServerSearch) {
+  if (error) {
     return (
       <Box
         sx={{
@@ -797,20 +513,6 @@ const Movies = () => {
                   label="Tìm kiếm phim"
                   value={filters.search}
                   onChange={(e) => handleFilterChange("search", e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      const value = String(e.currentTarget.value || "").trim();
-                      if (value) {
-                        setFilters((prev) => ({
-                          ...prev,
-                          actor: value,
-                          director: "",
-                          search: "",
-                        }));
-                      }
-                    }
-                  }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       color: "#fff",
@@ -834,7 +536,7 @@ const Movies = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={3}>
+              <Grid item xs={12} md={2}>
                 <FormControl fullWidth>
                   <InputLabel sx={{ color: "rgba(255,255,255,0.7)" }}>
                     Thể loại
@@ -867,14 +569,6 @@ const Movies = () => {
                           },
                         },
                       },
-                      anchorOrigin: {
-                        vertical: "bottom",
-                        horizontal: "left",
-                      },
-                      transformOrigin: {
-                        vertical: "top",
-                        horizontal: "left",
-                      },
                     }}
                     sx={{
                       color: "#fff",
@@ -893,9 +587,9 @@ const Movies = () => {
                     }}
                   >
                     <MenuItem value="">
-                      <em>Tất cả thể loại</em>
+                      <em>Tất cả</em>
                     </MenuItem>
-                    {uniqueGenres.filter(Boolean).map((genre) => (
+                    {uniqueGenres.map((genre) => (
                       <MenuItem key={genre} value={genre}>
                         {genre}
                       </MenuItem>
@@ -904,7 +598,7 @@ const Movies = () => {
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12} md={3}>
+              <Grid item xs={12} md={2}>
                 <FormControl fullWidth>
                   <InputLabel sx={{ color: "rgba(255,255,255,0.7)" }}>
                     Năm
@@ -930,7 +624,7 @@ const Movies = () => {
                     }}
                   >
                     <MenuItem value="">
-                      <em>Tất cả năm</em>
+                      <em>Tất cả</em>
                     </MenuItem>
                     {uniqueYears.map((year) => (
                       <MenuItem key={year} value={year}>
@@ -969,7 +663,7 @@ const Movies = () => {
                     }}
                   >
                     <MenuItem value="">
-                      <em>Tất cả quốc gia</em>
+                      <em>Tất cả</em>
                     </MenuItem>
                     {uniqueCountries.map((country) => (
                       <MenuItem key={country} value={country}>
@@ -981,81 +675,14 @@ const Movies = () => {
               </Grid>
 
               <Grid item xs={12} md={2}>
-                <TextField
-                  fullWidth
-                  label="Diễn viên"
-                  value={filters.actor}
-                  onChange={(e) => handleFilterChange("actor", e.target.value)}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      color: "#fff",
-                      "& fieldset": { borderColor: "rgba(255,255,255,0.3)" },
-                      "&:hover fieldset": {
-                        borderColor: "rgba(255,215,0,0.5)",
-                      },
-                      "&.Mui-focused fieldset": { borderColor: "#FFD700" },
-                    },
-                    "& .MuiInputLabel-root": {
-                      color: "rgba(255,255,255,0.7)",
-                      "&.Mui-focused": { color: "#FFD700" },
-                    },
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={2}>
-                <TextField
-                  fullWidth
-                  label="Đạo diễn"
-                  value={filters.director}
-                  onChange={(e) =>
-                    handleFilterChange("director", e.target.value)
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      // Force trigger search immediately on Enter
-                      if (filters.director) {
-                        setFilteredMovies([]);
-                        setPage(0);
-                        setSearchMode(null);
-                        fetchAdvanced(0, false);
-                      }
-                    }
-                  }}
-                  onBlur={() => {
-                    // Trigger search when user leaves the field
-                    if (filters.director && shouldServerSearch) {
-                      setFilteredMovies([]);
-                      setPage(0);
-                      setSearchMode(null);
-                      fetchAdvanced(0, false);
-                    }
-                  }}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      color: "#fff",
-                      "& fieldset": { borderColor: "rgba(255,255,255,0.3)" },
-                      "&:hover fieldset": {
-                        borderColor: "rgba(255,215,0,0.5)",
-                      },
-                      "&.Mui-focused fieldset": { borderColor: "#FFD700" },
-                    },
-                    "& .MuiInputLabel-root": {
-                      color: "rgba(255,255,255,0.7)",
-                      "&.Mui-focused": { color: "#FFD700" },
-                    },
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={2}>
                 <Button
+                  fullWidth
                   variant="outlined"
                   onClick={clearFilters}
                   sx={{
                     color: "rgba(255,255,255,0.7)",
                     borderColor: "rgba(255,255,255,0.3)",
+                    height: "56px",
                     "&:hover": {
                       borderColor: "#ff6b6b",
                       color: "#ff6b6b",
@@ -1078,129 +705,143 @@ const Movies = () => {
               fontSize: "0.9rem",
             }}
           >
-            Hiển thị {paginatedMovies.length} / {filteredMovies.length} phim
-            {(filters.search ||
-              filters.genre ||
-              filters.year ||
-              filters.country) &&
-              " (đã lọc)"}
-            {totalPages > 1 && ` - Trang ${currentPage}/${totalPages}`}
+            {isSearching ? (
+              "Đang tìm kiếm..."
+            ) : (
+              <>
+                Hiển thị {paginatedMovies.length} / {filteredMovies.length} phim
+                {Object.values(filters).some((v) => v) && " (đã lọc)"}
+                {totalPages > 1 && ` - Trang ${currentPage}/${totalPages}`}
+              </>
+            )}
           </Typography>
         </Box>
 
         {/* Movies Grid */}
-        <Grid container spacing={3}>
-          {paginatedMovies.map((movie) => (
-            <Grid item xs={6} sm={4} md={3} lg={2.4} xl={2} key={movie.id}>
-              <Card
-                sx={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 3,
-                  overflow: "hidden",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  backdropFilter: "blur(10px)",
-                  "&:hover": {
-                    transform: "translateY(-8px)",
-                    boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
-                    borderColor: "rgba(255,215,0,0.5)",
-                  },
-                }}
-                onClick={() => handleMovieClick(movie.id)}
-              >
-                <Box sx={{ position: "relative" }}>
-                  <CardMedia
-                    component="img"
-                    height="280"
-                    image={movie.thumb}
-                    alt={movie.title}
-                    sx={{
-                      objectFit: "cover",
-                      transition: "transform 0.3s ease",
-                      "&:hover": {
-                        transform: "scale(1.05)",
-                      },
-                    }}
-                  />
+        {isSearching ? (
+          <Box sx={{ textAlign: "center", py: 8 }}>
+            <Typography variant="h6" sx={{ color: "#fff" }}>
+              Đang tìm kiếm...
+            </Typography>
+          </Box>
+        ) : paginatedMovies.length === 0 ? (
+          <Box sx={{ textAlign: "center", py: 8 }}>
+            <Typography variant="h6" sx={{ color: "rgba(255,255,255,0.7)" }}>
+              Không tìm thấy phim nào
+            </Typography>
+          </Box>
+        ) : (
+          <Grid container spacing={3}>
+            {paginatedMovies.map((movie) => (
+              <Grid item xs={6} sm={4} md={3} lg={2.4} xl={2} key={movie.id}>
+                <Card
+                  sx={{
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 3,
+                    overflow: "hidden",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                    backdropFilter: "blur(10px)",
+                    "&:hover": {
+                      transform: "translateY(-8px)",
+                      boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+                      borderColor: "rgba(255,215,0,0.5)",
+                    },
+                  }}
+                  onClick={() => handleMovieClick(movie.id)}
+                >
+                  <Box sx={{ position: "relative" }}>
+                    <CardMedia
+                      component="img"
+                      height="280"
+                      image={movie.thumb}
+                      alt={movie.title}
+                      sx={{
+                        objectFit: "cover",
+                        transition: "transform 0.3s ease",
+                        "&:hover": {
+                          transform: "scale(1.05)",
+                        },
+                      }}
+                    />
 
-                  {/* Overlay with play button */}
-                  <Box
-                    sx={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      background: "rgba(0,0,0,0.4)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      opacity: 0,
-                      transition: "opacity 0.3s ease",
-                      "&:hover": {
-                        opacity: 1,
-                      },
-                    }}
-                  >
-                    <Tooltip title="Xem phim">
-                      <IconButton
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePlayClick(movie.id);
-                        }}
-                        sx={{
-                          background: "rgba(255,215,0,0.9)",
-                          color: "#000",
-                          width: 60,
-                          height: 60,
-                          "&:hover": {
-                            background: "#FFD700",
-                            transform: "scale(1.1)",
-                          },
-                        }}
-                      >
-                        <PlayIcon sx={{ fontSize: 30 }} />
-                      </IconButton>
-                    </Tooltip>
+                    {/* Overlay with play button */}
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: "rgba(0,0,0,0.4)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        opacity: 0,
+                        transition: "opacity 0.3s ease",
+                        "&:hover": {
+                          opacity: 1,
+                        },
+                      }}
+                    >
+                      <Tooltip title="Xem phim">
+                        <IconButton
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePlayClick(movie.id);
+                          }}
+                          sx={{
+                            background: "rgba(255,215,0,0.9)",
+                            color: "#000",
+                            width: 60,
+                            height: 60,
+                            "&:hover": {
+                              background: "#FFD700",
+                              transform: "scale(1.1)",
+                            },
+                          }}
+                        >
+                          <PlayIcon sx={{ fontSize: 30 }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+
+                    {/* Premium Badge */}
+                    <Chip
+                      label="P.Đề"
+                      size="small"
+                      sx={{
+                        position: "absolute",
+                        top: 8,
+                        right: 8,
+                        background: "rgba(255,215,0,0.9)",
+                        color: "#000",
+                        fontWeight: 600,
+                        fontSize: "0.75rem",
+                      }}
+                    />
                   </Box>
 
-                  {/* Premium/Subtitle Badge */}
-                  <Chip
-                    label="P.Đề"
-                    size="small"
-                    sx={{
-                      position: "absolute",
-                      top: 8,
-                      right: 8,
-                      background: "rgba(255,215,0,0.9)",
-                      color: "#000",
-                      fontWeight: 600,
-                      fontSize: "0.75rem",
-                    }}
-                  />
-                </Box>
+                  <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        color: "#fff",
+                        fontWeight: 600,
+                        fontSize: "0.95rem",
+                        lineHeight: 1.3,
+                        mb: 0.5,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                      }}
+                    >
+                      {movie.title}
+                    </Typography>
 
-                <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-                  <Typography
-                    variant="h6"
-                    sx={{
-                      color: "#fff",
-                      fontWeight: 600,
-                      fontSize: "0.95rem",
-                      lineHeight: 1.3,
-                      mb: 0.5,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                    }}
-                  >
-                    {movie.title}
-                  </Typography>
-
-                  {movie.englishTitle && (
                     <Typography
                       variant="body2"
                       sx={{
@@ -1212,40 +853,44 @@ const Movies = () => {
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {movie.englishTitle}
+                      {movie.englishTitle || movie.title}
                     </Typography>
-                  )}
 
-                  <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                    <Chip
-                      label={movie.year}
-                      size="small"
-                      sx={{
-                        background: "rgba(255,255,255,0.1)",
-                        color: "rgba(255,255,255,0.8)",
-                        fontSize: "0.7rem",
-                        height: 20,
-                      }}
-                    />
-                    <Chip
-                      label={movie.imdbRating}
-                      size="small"
-                      sx={{
-                        background: "rgba(255,215,0,0.2)",
-                        color: "#FFD700",
-                        fontSize: "0.7rem",
-                        height: 20,
-                      }}
-                    />
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                      {movie.year && (
+                        <Chip
+                          label={movie.year}
+                          size="small"
+                          sx={{
+                            background: "rgba(255,255,255,0.1)",
+                            color: "rgba(255,255,255,0.8)",
+                            fontSize: "0.7rem",
+                            height: 20,
+                          }}
+                        />
+                      )}
+                      {movie.imdbRating && (
+                        <Chip
+                          label={movie.imdbRating}
+                          size="small"
+                          sx={{
+                            background: "rgba(255,215,0,0.2)",
+                            color: "#FFD700",
+                            fontSize: "0.7rem",
+                            height: 20,
+                          }}
+                        />
+                      )}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        )}
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {totalPages > 1 && !isSearching && (
           <Box sx={{ display: "flex", justifyContent: "center", mt: 6, mb: 2 }}>
             <Pagination
               count={totalPages}
@@ -1277,34 +922,6 @@ const Movies = () => {
                 },
               }}
             />
-          </Box>
-        )}
-
-        {/* Load More Button */}
-        {shouldServerSearch && hasMore && (
-          <Box sx={{ textAlign: "center", mt: 6 }}>
-            <Button
-              variant="outlined"
-              onClick={() => fetchAdvanced(page + 1, true)}
-              disabled={isSearching}
-              sx={{
-                color: "rgba(255,255,255,0.9)",
-                borderColor: "rgba(255,255,255,0.3)",
-                borderRadius: 3,
-                px: 4,
-                py: 1.5,
-                textTransform: "none",
-                fontWeight: 600,
-                fontSize: "1rem",
-                "&:hover": {
-                  borderColor: "#FFD700",
-                  color: "#FFD700",
-                  background: "rgba(255,215,0,0.1)",
-                },
-              }}
-            >
-              {isSearching ? "Đang tải..." : "Xem thêm phim"}
-            </Button>
           </Box>
         )}
       </Container>
