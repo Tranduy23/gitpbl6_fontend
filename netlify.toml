@@ -3,8 +3,8 @@
   publish = "dist"
 [build.environment]
   NODE_VERSION = "22"
-  VITE_API_BASE_URL = "/api"
-  VITE_API_URL = ""
+  VITE_API_BASE_URL = "https://api.phimnhalam.website/api"
+  VITE_API_URL = "https://api.phimnhalam.website"
 
 # Redirects for API calls
 [[redirects]]
@@ -14,30 +14,12 @@
   force = true
   headers = {X-From = "Netlify"}
 
-# Movie API endpoints (NOT React routes) - query params auto-forwarded
 [[redirects]]
-  from = "/movies/now-showing"
-  to = "https://api.phimnhalam.website/movies/now-showing"
+  from = "/movies/*"
+  to = "https://api.phimnhalam.website/movies/:splat"
   status = 200
   force = true
-
-[[redirects]]
-  from = "/movies/featured"
-  to = "https://api.phimnhalam.website/movies/featured"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/movies/upcoming"
-  to = "https://api.phimnhalam.website/movies/upcoming"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/movies/popular"
-  to = "https://api.phimnhalam.website/movies/popular"
-  status = 200
-  force = true
+  headers = {X-From = "Netlify"}
 
 # SPA fallback - redirect all routes to index.html for client-side routing
 [[redirects]]

@@ -157,9 +157,21 @@ export default function ActorDetail() {
                       }}
                     />
                     <Box sx={{ p: 1.5 }}>
-                      <Typography sx={{ fontWeight: 700 }} noWrap>
+                      <Typography sx={{ fontWeight: 700, mb: 0.5 }} noWrap>
                         {mv.title}
                       </Typography>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        {mv.imdbRating && (
+                          <Typography sx={{ fontSize: 14, opacity: 0.9 }}>
+                            ⭐ {mv.imdbRating}
+                          </Typography>
+                        )}
+                        {mv.year && (
+                          <Typography sx={{ fontSize: 14, opacity: 0.7 }}>
+                            • {mv.year}
+                          </Typography>
+                        )}
+                      </Stack>
                     </Box>
                   </Card>
                 </Grid>
