@@ -14,13 +14,6 @@
   force = true
   headers = {X-From = "Netlify"}
 
-[[redirects]]
-  from = "/movies/*"
-  to = "https://api.phimnhalam.website/movies/:splat"
-  status = 200
-  force = true
-  headers = {X-From = "Netlify"}
-
 # SPA fallback - redirect all routes to index.html for client-side routing
 [[redirects]]
   from = "/*"

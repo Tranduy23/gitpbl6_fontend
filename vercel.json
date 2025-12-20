@@ -5,10 +5,6 @@
       "destination": "https://api.phimnhalam.website/api/:path*"
     },
     {
-      "source": "/movies/:path*",
-      "destination": "https://api.phimnhalam.website/movies/:path*"
-    },
-    {
       "source": "/subtitles/:path*",
       "destination": "https://cdn.phimnhalam.website/subtitles/:path*"
     },
