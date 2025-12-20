@@ -5,6 +5,22 @@
       "destination": "https://api.phimnhalam.website/api/:path*"
     },
     {
+      "source": "/movies/now-showing",
+      "destination": "https://api.phimnhalam.website/movies/now-showing"
+    },
+    {
+      "source": "/movies/featured",
+      "destination": "https://api.phimnhalam.website/movies/featured"
+    },
+    {
+      "source": "/movies/upcoming",
+      "destination": "https://api.phimnhalam.website/movies/upcoming"
+    },
+    {
+      "source": "/movies/popular",
+      "destination": "https://api.phimnhalam.website/movies/popular"
+    },
+    {
       "source": "/subtitles/:path*",
       "destination": "https://cdn.phimnhalam.website/subtitles/:path*"
     },
