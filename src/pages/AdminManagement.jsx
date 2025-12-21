@@ -2002,17 +2002,16 @@ function MovieViewForm({ movie, onClose }) {
                 >
                   <Typography variant="h6" color="success.main">
                     {Boolean(
-                      movieDetails?.subtitleUrl ||
-                        movieDetails?.subtitle ||
-                        movieDetails?.subtitleFile ||
-                        movieDetails?.subtitlePath ||
-                        (Array.isArray(movieDetails?.subtitles) &&
-                          movieDetails.subtitles.length > 0)
+                      movieDetails?.videoUrl ||
+                        movieDetails?.streamingUrl ||
+                        movieDetails?.video ||
+                        movieDetails?.videoFile ||
+                        movieDetails?.videoPath
                     )
                       ? "✓"
                       : "✗"}
                   </Typography>
-                  <Typography variant="caption">Subtitle</Typography>
+                  <Typography variant="caption">Video</Typography>
                 </Box>
               </Grid>
             </Grid>
@@ -2240,12 +2239,6 @@ function MovieCreationForm({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [uploadProgress, setUploadProgress] = useState({
-    video: 0,
-    trailer: 0,
-    uploading: false,
-    message: "",
-  });
 
   // TMDB integration state
   const [showTmdbSearch, setShowTmdbSearch] = useState(false);
@@ -2408,7 +2401,6 @@ function MovieCreationForm({
     event.preventDefault();
     setLoading(true);
     setError("");
-    setUploadProgress({ video: 0, trailer: 0, uploading: false, message: "" });
 
     try {
       const movieData = {
@@ -2417,27 +2409,8 @@ function MovieCreationForm({
       };
 
       if (isEdit && initialData?.id) {
-        // Show progress for large file uploads
-        if (files.video || files.trailer) {
-          setUploadProgress((prev) => ({
-            ...prev,
-            uploading: true,
-            message: "Đang lưu thông tin phim...",
-          }));
-        }
-
         // Use FormData for movie update to support file uploads
-        // Video and trailer will be uploaded separately for better performance
         await adminAPI.updateMovieWithFormData(initialData.id, movieData);
-
-        if (files.video || files.trailer) {
-          setUploadProgress((prev) => ({
-            ...prev,
-            message: "Hoàn tất! Video đã được upload thành công.",
-            video: 100,
-            trailer: 100,
-          }));
-        }
       } else {
         await adminAPI.createMovie(movieData);
       }
@@ -2448,14 +2421,6 @@ function MovieCreationForm({
       );
     } finally {
       setLoading(false);
-      setTimeout(() => {
-        setUploadProgress({
-          video: 0,
-          trailer: 0,
-          uploading: false,
-          message: "",
-        });
-      }, 2000);
     }
   };
 
@@ -2488,12 +2453,6 @@ function MovieCreationForm({
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
-          </Alert>
-        )}
-
-        {uploadProgress.uploading && uploadProgress.message && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            {uploadProgress.message}
           </Alert>
         )}
 

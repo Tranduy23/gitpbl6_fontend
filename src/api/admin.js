@@ -246,15 +246,14 @@ export function updateMovie(movieId, movieData) {
 }
 
 // PUT /api/admin/movies/{id} (with FormData support)
-// NOTE: For better performance, large video files should be uploaded separately
-// using uploadMovieVideo() instead of including them in this update call
-export async function updateMovieWithFormData(movieId, movieData) {
+// OPTIMIZED: Only append fields that have values to reduce payload size
+export function updateMovieWithFormData(movieId, movieData) {
   if (!movieId) throw new Error("movieId is required");
   if (!movieData) throw new Error("movieData is required");
 
   const formData = new FormData();
 
-  // Add text fields
+  // Add text fields - ONLY if they have values
   if (movieData.title) formData.append("title", movieData.title);
   if (movieData.synopsis) formData.append("synopsis", movieData.synopsis);
   if (movieData.year) formData.append("year", String(movieData.year));
@@ -295,52 +294,18 @@ export async function updateMovieWithFormData(movieId, movieData) {
   if (movieData.downloadEnabled !== undefined)
     formData.append("downloadEnabled", String(movieData.downloadEnabled));
 
-  // Add smaller file fields (poster, thumbnail)
+  // Add file fields - ONLY if they exist (like Postman)
   if (movieData.poster) formData.append("poster", movieData.poster);
   if (movieData.thumbnail) formData.append("thumbnail", movieData.thumbnail);
+  if (movieData.video) formData.append("video", movieData.video);
+  if (movieData.trailer) formData.append("trailer", movieData.trailer);
+  if (movieData.subtitle) formData.append("subtitle", movieData.subtitle);
 
-  // PERFORMANCE: Skip video file in main update - upload separately for better performance
-  // Trailer and subtitle are also better uploaded separately
-  // if (movieData.video) formData.append("video", movieData.video);
-  // if (movieData.trailer) formData.append("trailer", movieData.trailer);
-  // if (movieData.subtitle) formData.append("subtitle", movieData.subtitle);
-
-  // Update metadata first
-  const result = await formDataFetch(
+  return formDataFetch(
     `/admin/movies/${encodeURIComponent(movieId)}`,
     formData,
     { method: "PUT" }
   );
-
-  // Then upload video file separately if provided (better performance)
-  if (movieData.video) {
-    try {
-      await uploadMovieVideo(movieId, movieData.video);
-    } catch (err) {
-      console.warn("Video upload failed (metadata was saved):", err);
-      // Don't throw - metadata update succeeded
-    }
-  }
-
-  // Upload trailer separately if provided
-  if (movieData.trailer) {
-    try {
-      await uploadMovieTrailer(movieId, movieData.trailer);
-    } catch (err) {
-      console.warn("Trailer upload failed (metadata was saved):", err);
-    }
-  }
-
-  // Upload subtitle separately if provided
-  if (movieData.subtitle) {
-    try {
-      await uploadMovieSubtitle(movieId, movieData.subtitle);
-    } catch (err) {
-      console.warn("Subtitle upload failed (metadata was saved):", err);
-    }
-  }
-
-  return result;
 }
 
 // DELETE /api/admin/movies/{id}
@@ -392,23 +357,6 @@ export function uploadMovieTrailer(movieId, trailerFile) {
 
   return formDataFetch(
     `/admin/movies/${encodeURIComponent(movieId)}/trailer`,
-    formData,
-    {
-      method: "POST",
-    }
-  );
-}
-
-// POST /api/admin/movies/{id}/video
-export function uploadMovieVideo(movieId, videoFile) {
-  if (!movieId) throw new Error("movieId is required");
-  if (!videoFile) throw new Error("trailerFile is required");
-
-  const formData = new FormData();
-  formData.append("video", videoFile);
-
-  return formDataFetch(
-    `/admin/movies/${encodeURIComponent(movieId)}/video`,
     formData,
     {
       method: "POST",
@@ -860,7 +808,6 @@ export default {
   toggleMovieAvailability,
   uploadMoviePoster,
   uploadMovieTrailer,
-  uploadMovieVideo,
   uploadMovieSubtitle,
   getPublicMovieById,
 
