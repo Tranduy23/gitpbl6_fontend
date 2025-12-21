@@ -210,9 +210,7 @@ function DirectorsManagement() {
               String(d.name).trim().length > 0 &&
               String(d.name).toLowerCase() !== "unknown director" &&
               (searchTerm === "" ||
-                String(d.name)
-                  .toLowerCase()
-                  .includes(searchTerm.toLowerCase()))
+                String(d.name).toLowerCase().includes(searchTerm.toLowerCase()))
           );
           if (items.length === 0) return null; // don't render anything when empty
           return viewMode === "grid" ? (
@@ -719,70 +717,70 @@ function CategoriesManagement() {
                   .includes(searchTerm.toLowerCase())
             )
             .map((c) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={c.id || c.name}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    {c.displayName || c.name}
-                  </Typography>
-                  {c.description && (
-                    <Typography variant="body2" color="text.secondary">
-                      {c.description}
+              <Grid item xs={12} sm={6} md={4} lg={3} key={c.id || c.name}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      {c.displayName || c.name}
                     </Typography>
-                  )}
-                  {typeof c.movieCount === "number" && (
-                    <Chip
-                      label={`Movies: ${c.movieCount}`}
-                      size="small"
-                      sx={{ mt: 1 }}
-                    />
-                  )}
-                </CardContent>
-                <CardActions
-                  sx={{ justifyContent: "space-between", px: 2, pb: 2 }}
-                >
-                  <Tooltip title="Assign Movie (demo: movie id 1)">
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={async () => {
-                        try {
-                          await adminAPI.assignMovieToCategory(
-                            c.name || c.displayName,
-                            1
-                          );
-                          setSuccess("Assigned movie to category");
-                          loadCategories();
-                        } catch (err) {
-                          setError(err.message || "Failed to assign movie");
-                        }
-                      }}
-                    >
-                      <AddIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Edit">
-                    <IconButton
-                      size="small"
-                      color="secondary"
-                      onClick={() => setEditing(c)}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Delete">
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDelete(c.name || c.displayName)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Tooltip>
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
+                    {c.description && (
+                      <Typography variant="body2" color="text.secondary">
+                        {c.description}
+                      </Typography>
+                    )}
+                    {typeof c.movieCount === "number" && (
+                      <Chip
+                        label={`Movies: ${c.movieCount}`}
+                        size="small"
+                        sx={{ mt: 1 }}
+                      />
+                    )}
+                  </CardContent>
+                  <CardActions
+                    sx={{ justifyContent: "space-between", px: 2, pb: 2 }}
+                  >
+                    <Tooltip title="Assign Movie (demo: movie id 1)">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={async () => {
+                          try {
+                            await adminAPI.assignMovieToCategory(
+                              c.name || c.displayName,
+                              1
+                            );
+                            setSuccess("Assigned movie to category");
+                            loadCategories();
+                          } catch (err) {
+                            setError(err.message || "Failed to assign movie");
+                          }
+                        }}
+                      >
+                        <AddIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Edit">
+                      <IconButton
+                        size="small"
+                        color="secondary"
+                        onClick={() => setEditing(c)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDelete(c.name || c.displayName)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
         </Grid>
       ) : (
         <TableContainer component={Paper}>
@@ -809,63 +807,67 @@ function CategoriesManagement() {
                       .includes(searchTerm.toLowerCase())
                 )
                 .map((c) => (
-                <TableRow key={c.id || c.name} hover>
-                  <TableCell>{c.name}</TableCell>
-                  <TableCell>{c.displayName}</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" noWrap sx={{ maxWidth: 240 }}>
-                      {c.description}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {typeof c.movieCount === "number" && (
-                      <Chip label={c.movieCount} size="small" />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: "flex", gap: 0.5 }}>
-                      <Tooltip title="Assign Movie (demo: movie id 1)">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={async () => {
-                            try {
-                              await adminAPI.assignMovieToCategory(
-                                c.name || c.displayName,
-                                1
-                              );
-                              setSuccess("Assigned movie to category");
-                              loadCategories();
-                            } catch (err) {
-                              setError(err.message || "Failed to assign movie");
+                  <TableRow key={c.id || c.name} hover>
+                    <TableCell>{c.name}</TableCell>
+                    <TableCell>{c.displayName}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2" noWrap sx={{ maxWidth: 240 }}>
+                        {c.description}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {typeof c.movieCount === "number" && (
+                        <Chip label={c.movieCount} size="small" />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: "flex", gap: 0.5 }}>
+                        <Tooltip title="Assign Movie (demo: movie id 1)">
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={async () => {
+                              try {
+                                await adminAPI.assignMovieToCategory(
+                                  c.name || c.displayName,
+                                  1
+                                );
+                                setSuccess("Assigned movie to category");
+                                loadCategories();
+                              } catch (err) {
+                                setError(
+                                  err.message || "Failed to assign movie"
+                                );
+                              }
+                            }}
+                          >
+                            <AddIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit">
+                          <IconButton
+                            size="small"
+                            color="secondary"
+                            onClick={() => setEditing(c)}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() =>
+                              handleDelete(c.name || c.displayName)
                             }
-                          }}
-                        >
-                          <AddIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Edit">
-                        <IconButton
-                          size="small"
-                          color="secondary"
-                          onClick={() => setEditing(c)}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDelete(c.name || c.displayName)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </TableContainer>
@@ -1192,58 +1194,58 @@ function ActorsManagement() {
                   .includes(searchTerm.toLowerCase())
             )
             .map((actor) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={actor.id}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ textAlign: "center", mb: 1 }}>
-                    <Avatar
-                      src={actor.imageUrl || actor.avatarUrl}
-                      sx={{ width: 80, height: 80, mx: "auto" }}
-                    />
-                  </Box>
-                  <Typography variant="h6" gutterBottom>
-                    {actor.name}
-                  </Typography>
-                  {actor.dob && (
-                    <Typography variant="caption" color="text.secondary">
-                      DOB: {actor.dob}
+              <Grid item xs={12} sm={6} md={4} lg={3} key={actor.id}>
+                <Card>
+                  <CardContent>
+                    <Box sx={{ textAlign: "center", mb: 1 }}>
+                      <Avatar
+                        src={actor.imageUrl || actor.avatarUrl}
+                        sx={{ width: 80, height: 80, mx: "auto" }}
+                      />
+                    </Box>
+                    <Typography variant="h6" gutterBottom>
+                      {actor.name}
                     </Typography>
-                  )}
-                </CardContent>
-                <CardActions
-                  sx={{ justifyContent: "space-between", px: 2, pb: 2 }}
-                >
-                  <Tooltip title="View">
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={() => setViewing(actor)}
-                    >
-                      <ViewIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Edit">
-                    <IconButton
-                      size="small"
-                      color="secondary"
-                      onClick={() => setEditing(actor)}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Delete">
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDeleted(actor)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Tooltip>
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
+                    {actor.dob && (
+                      <Typography variant="caption" color="text.secondary">
+                        DOB: {actor.dob}
+                      </Typography>
+                    )}
+                  </CardContent>
+                  <CardActions
+                    sx={{ justifyContent: "space-between", px: 2, pb: 2 }}
+                  >
+                    <Tooltip title="View">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => setViewing(actor)}
+                      >
+                        <ViewIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Edit">
+                      <IconButton
+                        size="small"
+                        color="secondary"
+                        onClick={() => setEditing(actor)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDeleted(actor)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
         </Grid>
       ) : (
         <>
@@ -1267,48 +1269,48 @@ function ActorsManagement() {
                         .includes(searchTerm.toLowerCase())
                   )
                   .map((actor) => (
-                  <TableRow key={actor.id} hover>
-                    <TableCell>
-                      <Avatar
-                        src={actor.imageUrl || actor.avatarUrl}
-                        sx={{ width: 50, height: 50 }}
-                      />
-                    </TableCell>
-                    <TableCell>{actor.name}</TableCell>
-                    <TableCell>{actor.dob || ""}</TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", gap: 0.5 }}>
-                        <Tooltip title="View">
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => setViewing(actor)}
-                          >
-                            <ViewIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit">
-                          <IconButton
-                            size="small"
-                            color="secondary"
-                            onClick={() => setEditing(actor)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDeleted(actor)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                    <TableRow key={actor.id} hover>
+                      <TableCell>
+                        <Avatar
+                          src={actor.imageUrl || actor.avatarUrl}
+                          sx={{ width: 50, height: 50 }}
+                        />
+                      </TableCell>
+                      <TableCell>{actor.name}</TableCell>
+                      <TableCell>{actor.dob || ""}</TableCell>
+                      <TableCell>
+                        <Box sx={{ display: "flex", gap: 0.5 }}>
+                          <Tooltip title="View">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => setViewing(actor)}
+                            >
+                              <ViewIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Edit">
+                            <IconButton
+                              size="small"
+                              color="secondary"
+                              onClick={() => setEditing(actor)}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleted(actor)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           </TableContainer>
@@ -2238,6 +2240,12 @@ function MovieCreationForm({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [uploadProgress, setUploadProgress] = useState({
+    video: 0,
+    trailer: 0,
+    uploading: false,
+    message: "",
+  });
 
   // TMDB integration state
   const [showTmdbSearch, setShowTmdbSearch] = useState(false);
@@ -2400,6 +2408,7 @@ function MovieCreationForm({
     event.preventDefault();
     setLoading(true);
     setError("");
+    setUploadProgress({ video: 0, trailer: 0, uploading: false, message: "" });
 
     try {
       const movieData = {
@@ -2408,8 +2417,27 @@ function MovieCreationForm({
       };
 
       if (isEdit && initialData?.id) {
+        // Show progress for large file uploads
+        if (files.video || files.trailer) {
+          setUploadProgress((prev) => ({
+            ...prev,
+            uploading: true,
+            message: "Đang lưu thông tin phim...",
+          }));
+        }
+
         // Use FormData for movie update to support file uploads
+        // Video and trailer will be uploaded separately for better performance
         await adminAPI.updateMovieWithFormData(initialData.id, movieData);
+
+        if (files.video || files.trailer) {
+          setUploadProgress((prev) => ({
+            ...prev,
+            message: "Hoàn tất! Video đã được upload thành công.",
+            video: 100,
+            trailer: 100,
+          }));
+        }
       } else {
         await adminAPI.createMovie(movieData);
       }
@@ -2420,6 +2448,14 @@ function MovieCreationForm({
       );
     } finally {
       setLoading(false);
+      setTimeout(() => {
+        setUploadProgress({
+          video: 0,
+          trailer: 0,
+          uploading: false,
+          message: "",
+        });
+      }, 2000);
     }
   };
 
@@ -2452,6 +2488,12 @@ function MovieCreationForm({
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
+          </Alert>
+        )}
+
+        {uploadProgress.uploading && uploadProgress.message && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            {uploadProgress.message}
           </Alert>
         )}
 
@@ -3106,135 +3148,135 @@ function MoviesManagement() {
                   .includes(searchTerm.toLowerCase())
             )
             .map((movie) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={movie.id}>
-              <Card
-                sx={{
-                  height: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  transition:
-                    "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out",
-                  "&:hover": {
-                    transform: "translateY(-4px)",
-                    boxShadow: (theme) => theme.shadows[8],
-                  },
-                }}
-              >
-                <CardMedia
-                  component="img"
-                  height="300"
-                  image={
-                    movie.posterUrl ||
-                    movie.thumbnailUrl ||
-                    "/api/placeholder/300/400"
-                  }
-                  alt={movie.title}
+              <Grid item xs={12} sm={6} md={4} lg={3} key={movie.id}>
+                <Card
                   sx={{
-                    objectFit: "cover",
-                    background:
-                      "linear-gradient(45deg, #f0f0f0 30%, #e0e0e0 90%)",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    transition:
+                      "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out",
+                    "&:hover": {
+                      transform: "translateY(-4px)",
+                      boxShadow: (theme) => theme.shadows[8],
+                    },
                   }}
-                />
-                <CardContent sx={{ flexGrow: 1, pb: 1 }}>
-                  <Typography variant="h6" component="h2" gutterBottom noWrap>
-                    {movie.title}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    gutterBottom
-                  >
-                    {movie.year}
-                  </Typography>
-                  <Box sx={{ mb: 1 }}>
-                    {movie.genres?.slice(0, 2).map((genre, index) => (
-                      <Chip
-                        key={index}
-                        label={genre}
-                        size="small"
-                        sx={{ mr: 0.5, mb: 0.5 }}
-                        color="primary"
-                        variant="outlined"
-                      />
-                    ))}
-                    {movie.genres?.length > 2 && (
-                      <Chip
-                        label={`+${movie.genres.length - 2}`}
-                        size="small"
-                        sx={{ mr: 0.5, mb: 0.5 }}
-                        color="default"
-                        variant="outlined"
-                      />
-                    )}
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      gap: 1,
-                      alignItems: "center",
-                      mb: 1,
-                    }}
-                  >
-                    <Chip
-                      label={movie.isAvailable ? "Available" : "Unavailable"}
-                      color={movie.isAvailable ? "success" : "default"}
-                      size="small"
-                    />
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={movie.isAvailable}
-                          onChange={() => handleToggleAvailability(movie)}
-                          size="small"
-                        />
-                      }
-                      label=""
-                    />
-                  </Box>
-                </CardContent>
-                <CardActions
-                  sx={{ justifyContent: "space-between", px: 2, pb: 2 }}
                 >
-                  <Tooltip title="View Details">
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={() => handleViewMovie(movie)}
+                  <CardMedia
+                    component="img"
+                    height="300"
+                    image={
+                      movie.posterUrl ||
+                      movie.thumbnailUrl ||
+                      "/api/placeholder/300/400"
+                    }
+                    alt={movie.title}
+                    sx={{
+                      objectFit: "cover",
+                      background:
+                        "linear-gradient(45deg, #f0f0f0 30%, #e0e0e0 90%)",
+                    }}
+                  />
+                  <CardContent sx={{ flexGrow: 1, pb: 1 }}>
+                    <Typography variant="h6" component="h2" gutterBottom noWrap>
+                      {movie.title}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      gutterBottom
                     >
-                      <ViewIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Edit Movie">
-                    <IconButton
-                      size="small"
-                      color="secondary"
-                      onClick={() => handleEditMovie(movie)}
+                      {movie.year}
+                    </Typography>
+                    <Box sx={{ mb: 1 }}>
+                      {movie.genres?.slice(0, 2).map((genre, index) => (
+                        <Chip
+                          key={index}
+                          label={genre}
+                          size="small"
+                          sx={{ mr: 0.5, mb: 0.5 }}
+                          color="primary"
+                          variant="outlined"
+                        />
+                      ))}
+                      {movie.genres?.length > 2 && (
+                        <Chip
+                          label={`+${movie.genres.length - 2}`}
+                          size="small"
+                          sx={{ mr: 0.5, mb: 0.5 }}
+                          color="default"
+                          variant="outlined"
+                        />
+                      )}
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 1,
+                        alignItems: "center",
+                        mb: 1,
+                      }}
                     >
-                      <EditIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Upload Subtitle">
-                    <IconButton
-                      size="small"
-                      color="info"
-                      onClick={() => triggerSubtitleUpload(movie)}
-                    >
-                      <ClosedCaptionIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Delete Movie">
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDeleteMovie(movie)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Tooltip>
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
+                      <Chip
+                        label={movie.isAvailable ? "Available" : "Unavailable"}
+                        color={movie.isAvailable ? "success" : "default"}
+                        size="small"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={movie.isAvailable}
+                            onChange={() => handleToggleAvailability(movie)}
+                            size="small"
+                          />
+                        }
+                        label=""
+                      />
+                    </Box>
+                  </CardContent>
+                  <CardActions
+                    sx={{ justifyContent: "space-between", px: 2, pb: 2 }}
+                  >
+                    <Tooltip title="View Details">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleViewMovie(movie)}
+                      >
+                        <ViewIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Edit Movie">
+                      <IconButton
+                        size="small"
+                        color="secondary"
+                        onClick={() => handleEditMovie(movie)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Upload Subtitle">
+                      <IconButton
+                        size="small"
+                        color="info"
+                        onClick={() => triggerSubtitleUpload(movie)}
+                      >
+                        <ClosedCaptionIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete Movie">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDeleteMovie(movie)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
         </Grid>
       ) : (
         <>
@@ -3260,107 +3302,109 @@ function MoviesManagement() {
                         .includes(searchTerm.toLowerCase())
                   )
                   .map((movie) => (
-                  <TableRow key={movie.id} hover>
-                    <TableCell>
-                      <Avatar
-                        src={movie.posterUrl || movie.thumbnailUrl}
-                        alt={movie.title}
-                        variant="rounded"
-                        sx={{ width: 60, height: 80 }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        {movie.title}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {movie.synopsis?.substring(0, 50)}...
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{movie.year}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                        {movie.genres?.slice(0, 2).map((genre, index) => (
-                          <Chip
-                            key={index}
-                            label={genre}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                          />
-                        ))}
-                        {movie.genres?.length > 2 && (
-                          <Chip
-                            label={`+${movie.genres.length - 2}`}
-                            size="small"
-                            color="default"
-                            variant="outlined"
-                          />
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box
-                        sx={{ display: "flex", gap: 1, alignItems: "center" }}
-                      >
-                        <Chip
-                          label={
-                            movie.isAvailable ? "Available" : "Unavailable"
-                          }
-                          color={movie.isAvailable ? "success" : "default"}
-                          size="small"
+                    <TableRow key={movie.id} hover>
+                      <TableCell>
+                        <Avatar
+                          src={movie.posterUrl || movie.thumbnailUrl}
+                          alt={movie.title}
+                          variant="rounded"
+                          sx={{ width: 60, height: 80 }}
                         />
-                        <Switch
-                          checked={movie.isAvailable}
-                          onChange={() => handleToggleAvailability(movie)}
-                          size="small"
-                        />
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", gap: 0.5 }}>
-                        <Tooltip title="View Details">
-                          <IconButton
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          {movie.title}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {movie.synopsis?.substring(0, 50)}...
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{movie.year}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Box
+                          sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}
+                        >
+                          {movie.genres?.slice(0, 2).map((genre, index) => (
+                            <Chip
+                              key={index}
+                              label={genre}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          ))}
+                          {movie.genres?.length > 2 && (
+                            <Chip
+                              label={`+${movie.genres.length - 2}`}
+                              size="small"
+                              color="default"
+                              variant="outlined"
+                            />
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box
+                          sx={{ display: "flex", gap: 1, alignItems: "center" }}
+                        >
+                          <Chip
+                            label={
+                              movie.isAvailable ? "Available" : "Unavailable"
+                            }
+                            color={movie.isAvailable ? "success" : "default"}
                             size="small"
-                            color="primary"
-                            onClick={() => handleViewMovie(movie)}
-                          >
-                            <ViewIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit Movie">
-                          <IconButton
+                          />
+                          <Switch
+                            checked={movie.isAvailable}
+                            onChange={() => handleToggleAvailability(movie)}
                             size="small"
-                            color="secondary"
-                            onClick={() => handleEditMovie(movie)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Upload Subtitle">
-                          <IconButton
-                            size="small"
-                            color="info"
-                            onClick={() => triggerSubtitleUpload(movie)}
-                          >
-                            <ClosedCaptionIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete Movie">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDeleteMovie(movie)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          />
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: "flex", gap: 0.5 }}>
+                          <Tooltip title="View Details">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => handleViewMovie(movie)}
+                            >
+                              <ViewIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Edit Movie">
+                            <IconButton
+                              size="small"
+                              color="secondary"
+                              onClick={() => handleEditMovie(movie)}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Upload Subtitle">
+                            <IconButton
+                              size="small"
+                              color="info"
+                              onClick={() => triggerSubtitleUpload(movie)}
+                            >
+                              <ClosedCaptionIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete Movie">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteMovie(movie)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           </TableContainer>
@@ -4069,83 +4113,83 @@ function CountriesManagement() {
                   .includes(searchTerm.toLowerCase())
             )
             .map((country) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={country.id}>
-              <Card>
-                <CardContent sx={{ pb: 1 }}>
-                  <Box sx={{ textAlign: "center", mb: 2 }}>
-                    <img
-                      src={
-                        country.flagUrl ||
-                        country.flag ||
-                        "/api/placeholder/150/100"
-                      }
-                      alt={`${country.name} flag`}
-                      style={{
-                        width: "150px",
-                        height: "100px",
-                        objectFit: "cover",
-                        borderRadius: "8px",
-                        border: "1px solid #ddd",
+              <Grid item xs={12} sm={6} md={4} lg={3} key={country.id}>
+                <Card>
+                  <CardContent sx={{ pb: 1 }}>
+                    <Box sx={{ textAlign: "center", mb: 2 }}>
+                      <img
+                        src={
+                          country.flagUrl ||
+                          country.flag ||
+                          "/api/placeholder/150/100"
+                        }
+                        alt={`${country.name} flag`}
+                        style={{
+                          width: "150px",
+                          height: "100px",
+                          objectFit: "cover",
+                          borderRadius: "8px",
+                          border: "1px solid #ddd",
+                        }}
+                      />
+                    </Box>
+                    <Typography variant="h6" gutterBottom>
+                      {country.name}
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 1,
+                        alignItems: "center",
+                        mb: 1,
                       }}
-                    />
-                  </Box>
-                  <Typography variant="h6" gutterBottom>
-                    {country.name}
-                  </Typography>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      gap: 1,
-                      alignItems: "center",
-                      mb: 1,
-                    }}
+                    >
+                      <Chip
+                        label={country.isActive ? "Active" : "Inactive"}
+                        color={country.isActive ? "success" : "default"}
+                        size="small"
+                      />
+                      <Switch
+                        checked={country.isActive}
+                        onChange={() => handleToggleActivation(country)}
+                        size="small"
+                      />
+                    </Box>
+                  </CardContent>
+                  <CardActions
+                    sx={{ justifyContent: "space-between", px: 2, pb: 2 }}
                   >
-                    <Chip
-                      label={country.isActive ? "Active" : "Inactive"}
-                      color={country.isActive ? "success" : "default"}
-                      size="small"
-                    />
-                    <Switch
-                      checked={country.isActive}
-                      onChange={() => handleToggleActivation(country)}
-                      size="small"
-                    />
-                  </Box>
-                </CardContent>
-                <CardActions
-                  sx={{ justifyContent: "space-between", px: 2, pb: 2 }}
-                >
-                  <Tooltip title="View Details">
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={() => handleViewCountry(country)}
-                    >
-                      <ViewIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Edit Country">
-                    <IconButton
-                      size="small"
-                      color="secondary"
-                      onClick={() => handleEditCountry(country)}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Delete Country">
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDeleteCountry(country)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Tooltip>
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
+                    <Tooltip title="View Details">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleViewCountry(country)}
+                      >
+                        <ViewIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Edit Country">
+                      <IconButton
+                        size="small"
+                        color="secondary"
+                        onClick={() => handleEditCountry(country)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete Country">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDeleteCountry(country)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
         </Grid>
       ) : (
         <TableContainer component={Paper}>
@@ -4168,74 +4212,76 @@ function CountriesManagement() {
                       .includes(searchTerm.toLowerCase())
                 )
                 .map((country) => (
-                <TableRow key={country.id}>
-                  <TableCell>
-                    <img
-                      src={
-                        country.flagUrl ||
-                        country.flag ||
-                        "/api/placeholder/50/30"
-                      }
-                      alt={`${country.name} flag`}
-                      style={{
-                        width: "50px",
-                        height: "30px",
-                        objectFit: "cover",
-                        borderRadius: "4px",
-                        border: "1px solid #ddd",
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{country.name}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                      <Chip
-                        label={country.isActive ? "Active" : "Inactive"}
-                        color={country.isActive ? "success" : "default"}
-                        size="small"
+                  <TableRow key={country.id}>
+                    <TableCell>
+                      <img
+                        src={
+                          country.flagUrl ||
+                          country.flag ||
+                          "/api/placeholder/50/30"
+                        }
+                        alt={`${country.name} flag`}
+                        style={{
+                          width: "50px",
+                          height: "30px",
+                          objectFit: "cover",
+                          borderRadius: "4px",
+                          border: "1px solid #ddd",
+                        }}
                       />
-                      <Switch
-                        checked={country.isActive}
-                        onChange={() => handleToggleActivation(country)}
-                        size="small"
-                      />
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: "flex", gap: 0.5 }}>
-                      <Tooltip title="View Details">
-                        <IconButton
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{country.name}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box
+                        sx={{ display: "flex", gap: 1, alignItems: "center" }}
+                      >
+                        <Chip
+                          label={country.isActive ? "Active" : "Inactive"}
+                          color={country.isActive ? "success" : "default"}
                           size="small"
-                          color="primary"
-                          onClick={() => handleViewCountry(country)}
-                        >
-                          <ViewIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Edit Country">
-                        <IconButton
+                        />
+                        <Switch
+                          checked={country.isActive}
+                          onChange={() => handleToggleActivation(country)}
                           size="small"
-                          color="secondary"
-                          onClick={() => handleEditCountry(country)}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete Country">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDeleteCountry(country)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        />
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: "flex", gap: 0.5 }}>
+                        <Tooltip title="View Details">
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => handleViewCountry(country)}
+                          >
+                            <ViewIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit Country">
+                          <IconButton
+                            size="small"
+                            color="secondary"
+                            onClick={() => handleEditCountry(country)}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete Country">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteCountry(country)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </TableContainer>
@@ -5529,60 +5575,62 @@ function ReportsManagement() {
                       .includes(searchTerm.toLowerCase())
                 )
                 .map((report) => (
-                <TableRow key={report.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="bold">
-                      #{report.id}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={report.reportType || "Unknown"}
-                      size="small"
-                      color={report.reportType === "SPAM" ? "error" : "warning"}
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                      {report.reason || "No description"}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {report.reporter?.username || "Unknown"}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={
-                        report.status === "RESOLVED" ? "Resolved" : "Pending"
-                      }
-                      color={
-                        report.status === "RESOLVED" ? "success" : "default"
-                      }
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {new Date(report.createdAt).toLocaleDateString()}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {report.status !== "RESOLVED" && (
-                      <Button
+                  <TableRow key={report.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="bold">
+                        #{report.id}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={report.reportType || "Unknown"}
                         size="small"
-                        variant="contained"
-                        color="success"
-                        onClick={() => handleResolveReport(report.id)}
-                      >
-                        Resolve
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                        color={
+                          report.reportType === "SPAM" ? "error" : "warning"
+                        }
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
+                        {report.reason || "No description"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {report.reporter?.username || "Unknown"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={
+                          report.status === "RESOLVED" ? "Resolved" : "Pending"
+                        }
+                        color={
+                          report.status === "RESOLVED" ? "success" : "default"
+                        }
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {new Date(report.createdAt).toLocaleDateString()}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {report.status !== "RESOLVED" && (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          onClick={() => handleResolveReport(report.id)}
+                        >
+                          Resolve
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </TableContainer>
